@@ -1,0 +1,818 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    
+    <title>Calculadora Blindada PRO | Ferramenta de Precificação</title>
+    <meta name="description" content="Ferramenta profissional para prestadores de serviços: precificação, custos e orçamentos via IA.">
+    <meta name="theme-color" content="#0f172a">
+
+    <!-- FAVICON (Ícone na aba) -->
+    <link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>🛡️</text></svg>">
+
+    <!-- LIBRARIES -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+    
+    <!-- ESTILOS CUSTOMIZADOS E ANIMAÇÕES -->
+    <style>
+        body { 
+            font-family: 'Inter', sans-serif; 
+            background-color: #f1f5f9; /* Slate-100 */
+            -webkit-font-smoothing: antialiased;
+            -webkit-tap-highlight-color: transparent;
+        }
+        
+        /* Previne zoom em inputs no iOS */
+        input, select, textarea { font-size: 16px !important; }
+
+        /* Remove setas dos inputs numéricos */
+        .input-field::-webkit-outer-spin-button, .input-field::-webkit-inner-spin-button { -webkit-appearance: none; margin: 0; }
+        .input-field { -moz-appearance: textfield; transition: all 0.2s ease-in-out; }
+        
+        /* Foco suave e profissional */
+        .input-field:focus { 
+            border-color: #2563eb; /* Blue-600 */
+            box-shadow: 0 0 0 4px rgba(37, 99, 235, 0.1); 
+            background-color: #ffffff; 
+            transform: translateY(-1px);
+        }
+
+        /* Animação de Erro (Shake) */
+        @keyframes shake {
+            0%, 100% { transform: translateX(0); }
+            10%, 30%, 50%, 70%, 90% { transform: translateX(-4px); }
+            20%, 40%, 60%, 80% { transform: translateX(4px); }
+        }
+        .shake-animation { animation: shake 0.4s cubic-bezier(.36,.07,.19,.97) both; }
+        
+        /* Layout Central */
+        .app-wrapper { 
+            min-height: 100dvh; /* Altura dinâmica mobile */
+            display: flex; 
+            flex-direction: column; 
+            justify-content: center; 
+            align-items: center; 
+            padding: 1rem; 
+        }
+
+        /* Acordeão de Mensagens */
+        .accordion-content { 
+            transition: max-height 0.3s ease-out, opacity 0.3s ease-out; 
+            max-height: 0; 
+            opacity: 0; 
+            overflow: hidden; 
+        }
+        .accordion-open .accordion-content { max-height: 2000px; opacity: 1; }
+        .accordion-open .accordion-icon { transform: rotate(180deg); }
+
+        /* Botões de Quantidade */
+        .qty-btn { 
+            width: 36px; height: 36px; 
+            display: flex; align-items: center; justify-content: center; 
+            border-radius: 8px; 
+            background: #f8fafc; color: #64748b; 
+            cursor: pointer; transition: all 0.2s; 
+            touch-action: manipulation;
+        }
+        .qty-btn:active { background: #e2e8f0; transform: scale(0.9); }
+
+        /* Modal / Bottom Sheet */
+        .modal-overlay { background-color: rgba(15, 23, 42, 0.6); backdrop-filter: blur(4px); }
+    </style>
+</head>
+<body>
+
+    <div class="app-wrapper">
+        
+        <!-- CARD PRINCIPAL (Responsivo: Max-width calibrado) -->
+        <div class="w-full max-w-md bg-white rounded-3xl overflow-hidden border border-slate-200 shadow-2xl relative z-10 flex flex-col">
+            
+            <!-- CABEÇALHO -->
+            <header class="bg-[#0f172a] text-white p-6 pb-10 relative overflow-hidden flex justify-between items-start shrink-0">
+                <!-- Elementos Decorativos -->
+                <div class="absolute top-0 right-0 w-32 h-32 bg-blue-600 rounded-full opacity-10 blur-3xl transform translate-x-10 -translate-y-10 pointer-events-none"></div>
+                
+                <div class="z-10">
+                    <div class="flex items-center gap-2 mb-1 opacity-90">
+                        <i class="fa-solid fa-shield-halved text-blue-500 text-xl"></i>
+                        <span class="text-xs font-bold uppercase tracking-widest text-blue-200">FERRAMENTA</span>
+                    </div>
+                    <h1 class="text-2xl font-black uppercase tracking-wide text-white leading-tight">
+                        CALCULADORA <br><span class="text-blue-500">BLINDADA PRO</span>
+                    </h1>
+                </div>
+                
+                <button onclick="toggleSettings()" class="z-10 text-slate-400 hover:text-white transition-colors p-3 bg-slate-800/50 hover:bg-slate-700/80 rounded-xl backdrop-blur-sm active:scale-95 shadow-lg border border-slate-700/50" title="Configurações">
+                    <i class="fa-solid fa-gear text-lg"></i>
+                </button>
+            </header>
+
+            <!-- ÁREA DE CONTEÚDO (Card Branco Sobreposto) -->
+            <div class="relative -mt-6 bg-white rounded-t-[2rem] px-6 pt-8 pb-8 flex-grow shadow-[0_-10px_20px_-5px_rgba(0,0,0,0.1)]">
+                
+                <!-- ==================== TELA 1: ENTRADA DE DADOS ==================== -->
+                <div id="input-section" class="space-y-6 transition-all duration-300">
+                    
+                    <!-- CARD CLIENTE -->
+                    <div class="bg-slate-50/80 p-4 rounded-2xl border border-slate-100 space-y-3">
+                        <label class="block text-xs font-bold text-blue-600 uppercase tracking-wide flex items-center gap-2 mb-2">
+                            <i class="fa-solid fa-user-pen"></i> Dados do Orçamento
+                        </label>
+                        
+                        <input type="text" id="nomePrestador" placeholder="Seu Nome / Sua Empresa" 
+                            class="input-field w-full p-3.5 bg-white border border-slate-200 rounded-xl text-sm font-semibold text-slate-700 placeholder-slate-400 focus:outline-none">
+                        
+                        <input type="text" id="nomeCliente" placeholder="Nome do Cliente" 
+                            class="input-field w-full p-3.5 bg-white border border-slate-200 rounded-xl text-sm font-semibold text-slate-700 placeholder-slate-400 focus:outline-none">
+                        
+                        <!-- NOVO LAYOUT: Data e Endereço separados -->
+                        <div class="grid grid-cols-2 gap-3">
+                            <div>
+                                <label class="block text-[10px] font-bold text-slate-400 mb-1 uppercase">Data do Serviço</label>
+                                <input type="date" id="dataServico" 
+                                    class="input-field w-full p-3.5 bg-white border border-slate-200 rounded-xl text-sm font-semibold text-slate-700 focus:outline-none text-center">
+                            </div>
+                            <div class="col-span-1">
+                                <label class="block text-[10px] font-bold text-slate-400 mb-1 uppercase">Hora Estimada</label>
+                                <input type="time" id="horaServico" value="09:00"
+                                    class="input-field w-full p-3.5 bg-white border border-slate-200 rounded-xl text-sm font-semibold text-slate-700 focus:outline-none text-center">
+                            </div>
+                        </div>
+
+                        <input type="text" id="enderecoServico" placeholder="Local / Endereço Completo" 
+                            class="input-field w-full p-3.5 bg-white border border-slate-200 rounded-xl text-sm font-semibold text-slate-700 placeholder-slate-400 focus:outline-none mt-2">
+                    </div>
+
+                    <!-- LISTA DE SERVIÇOS -->
+                    <div class="space-y-4">
+                        <div class="flex justify-between items-center px-1">
+                            <label class="text-xs font-bold text-slate-500 uppercase tracking-wide">
+                                <i class="fa-solid fa-list-check mr-1"></i> Serviços a Executar
+                            </label>
+                        </div>
+                        
+                        <div id="services-container" class="space-y-3">
+                            <!-- Itens serão injetados aqui -->
+                        </div>
+
+                        <button onclick="adicionarServico()" class="w-full py-3 border-2 border-dashed border-slate-300 rounded-xl text-xs font-bold text-slate-500 hover:border-blue-500 hover:text-blue-600 hover:bg-blue-50 transition-all flex items-center justify-center gap-2 active:scale-[0.99]">
+                            <i class="fa-solid fa-circle-plus text-lg"></i> ADICIONAR OUTRO SERVIÇO
+                        </button>
+
+                        <div class="relative">
+                            <i class="fa-solid fa-pen absolute top-4 left-4 text-slate-300 text-xs"></i>
+                            <textarea id="detalhesServico" rows="2" placeholder="Observações técnicas (Ex: 5º andar, tubulação exposta...)" 
+                                class="input-field w-full pl-10 p-3.5 bg-slate-50 border border-slate-200 rounded-xl text-sm font-medium text-slate-700 placeholder-slate-400 focus:outline-none resize-none"></textarea>
+                        </div>
+                    </div>
+
+                    <!-- CUSTOS VARIÁVEIS -->
+                    <div class="space-y-4 pt-4 border-t border-slate-100">
+                        <label class="block text-xs font-bold text-slate-500 uppercase tracking-wide ml-1">
+                            <i class="fa-solid fa-box-open mr-1"></i> Custos da Operação
+                        </label>
+                        
+                        <!-- Custo Peças -->
+                        <div class="relative group">
+                            <div class="absolute left-4 top-1/2 -translate-y-1/2 bg-slate-100 px-2 py-1 rounded text-xs font-bold text-slate-500 border border-slate-200">R$</div>
+                            <input type="number" id="custoPecas" placeholder="0,00" 
+                                class="input-field w-full pl-16 pr-4 py-4 bg-white border border-slate-200 rounded-xl text-lg font-bold text-slate-700 placeholder-slate-300 focus:outline-none" 
+                                inputmode="decimal">
+                            <span class="absolute right-4 top-1/2 -translate-y-1/2 text-xs font-bold text-slate-300 pointer-events-none uppercase">Material</span>
+                        </div>
+
+                        <div class="grid grid-cols-2 gap-4">
+                            <div class="relative">
+                                <i class="fa-solid fa-route absolute left-4 top-1/2 -translate-y-1/2 text-slate-400"></i>
+                                <input type="number" id="distanciaKm" placeholder="Km Total" 
+                                    class="input-field w-full pl-10 pr-2 py-3.5 bg-white border border-slate-200 rounded-xl text-sm font-bold text-slate-700 focus:outline-none" 
+                                    inputmode="numeric">
+                                <p id="custoKmLabel" class="text-[10px] text-slate-400 mt-1.5 ml-1 font-medium">Ref: R$ 0.98/km</p>
+                            </div>
+                            <div class="relative">
+                                <i class="fa-regular fa-clock absolute left-4 top-1/2 -translate-y-1/2 text-slate-400"></i>
+                                <input type="number" id="tempoHoras" placeholder="Hrs Total" 
+                                    class="input-field w-full pl-10 pr-2 py-3.5 bg-white border border-slate-200 rounded-xl text-sm font-bold text-slate-700 focus:outline-none" 
+                                    inputmode="decimal">
+                                <p class="text-[10px] text-slate-400 mt-1.5 ml-1 font-medium">Para registro</p>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- BOTÃO CALCULAR -->
+                    <button onclick="calcularPrecos()" class="w-full bg-gradient-to-r from-blue-600 to-blue-700 hover:from-blue-700 hover:to-blue-800 text-white font-black py-4 rounded-2xl shadow-lg shadow-blue-600/30 transform transition active:scale-[0.98] text-lg mt-4 flex items-center justify-center gap-3 group">
+                        CALCULAR E GERAR PROPOSTA <i class="fa-solid fa-arrow-right group-hover:translate-x-1 transition-transform"></i>
+                    </button>
+                </div>
+
+                <!-- ==================== TELA 2: RESULTADOS ==================== -->
+                <div id="results-section" class="hidden animate-fade-in-up space-y-6">
+                    
+                    <!-- DETALHAMENTO DE CUSTOS -->
+                    <div class="bg-white rounded-2xl p-5 border border-slate-200 shadow-sm">
+                        <div class="flex justify-between items-center mb-4 border-b border-slate-100 pb-3">
+                            <span class="text-xs font-bold text-slate-500 uppercase tracking-wide flex items-center gap-2">
+                                <i class="fa-solid fa-chart-pie"></i> Detalhamento de Custos
+                            </span>
+                            <span class="text-[10px] font-black text-slate-700 bg-slate-100 px-2 py-1 rounded border border-slate-200" id="displayTotalOperacional">Total: R$ 0,00</span>
+                        </div>
+                        <div class="grid grid-cols-3 gap-4 text-center">
+                            <div class="flex flex-col items-center">
+                                <div class="w-8 h-8 rounded-full bg-blue-50 flex items-center justify-center text-blue-500 mb-1"><i class="fa-solid fa-truck-fast text-xs"></i></div>
+                                <p class="text-[10px] font-bold text-slate-400 uppercase">Logística</p>
+                                <p class="text-xs font-black text-slate-700" id="displayLogistica">R$ 0,00</p>
+                            </div>
+                            <div class="flex flex-col items-center relative">
+                                <!-- Divisor visual -->
+                                <div class="absolute left-0 top-2 bottom-2 w-px bg-slate-100"></div>
+                                <div class="absolute right-0 top-2 bottom-2 w-px bg-slate-100"></div>
+                                
+                                <div class="w-8 h-8 rounded-full bg-green-50 flex items-center justify-center text-green-500 mb-1"><i class="fa-solid fa-screwdriver-wrench text-xs"></i></div>
+                                <p class="text-[10px] font-bold text-slate-400 uppercase">Mão de Obra</p>
+                                <p class="text-xs font-black text-slate-700" id="displayMaoObra">R$ 0,00</p>
+                            </div>
+                            <div class="flex flex-col items-center">
+                                <div class="w-8 h-8 rounded-full bg-orange-50 flex items-center justify-center text-orange-500 mb-1"><i class="fa-solid fa-box text-xs"></i></div>
+                                <p class="text-[10px] font-bold text-slate-400 uppercase">Materiais</p>
+                                <p class="text-xs font-black text-slate-700" id="displayMateriais">R$ 0,00</p>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- VALOR FINAL -->
+                    <div class="bg-[#0f172a] p-6 rounded-3xl shadow-xl text-white relative overflow-hidden text-center ring-4 ring-slate-50">
+                        <div class="absolute -top-10 -right-10 w-40 h-40 bg-blue-600 rounded-full opacity-20 blur-3xl pointer-events-none"></div>
+                        
+                        <div class="relative z-10">
+                            <p class="text-xs font-bold text-blue-300 uppercase mb-3 tracking-widest">Valor Sugerido ao Cliente</p>
+                            <p class="text-5xl font-black tracking-tight mb-5 drop-shadow-md" id="displayPrecoFinal">R$ 0,00</p>
+                            
+                            <div class="bg-white/10 rounded-xl p-3 flex flex-col items-center justify-center gap-1 w-full border border-white/10 backdrop-blur-sm">
+                                <span class="text-[10px] text-slate-300 uppercase tracking-wide font-semibold">Seu Ganho Real (Mão de Obra + Lucro)</span>
+                                <span class="font-black text-green-400 text-2xl tracking-tight" id="displayLucroLiquido">R$ 0,00</span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- BOTÃO GERAR MENSAGENS -->
+                    <div class="space-y-4">
+                        <h3 class="text-xs font-bold text-slate-400 uppercase tracking-widest text-center divider flex items-center justify-center gap-2 before:content-[''] before:h-px before:w-10 before:bg-slate-200 after:content-[''] after:h-px after:w-10 after:bg-slate-200">
+                            Próximos Passos
+                        </h3>
+                        
+                        <button onclick="gerarOrcamentoIA()" id="btnJustificativa" class="w-full bg-green-600 hover:bg-green-700 active:bg-green-800 text-white py-4 rounded-2xl font-bold text-sm shadow-lg shadow-green-600/20 transition-all flex items-center justify-center gap-3 active:scale-[0.98]">
+                            <i class="fa-brands fa-whatsapp text-2xl"></i> 
+                            <span class="text-left leading-tight">
+                                <span class="block text-[10px] font-normal opacity-80 uppercase">Inteligência Artificial</span>
+                                <span id="txtBtnWpp">GERAR MENSAGENS PRONTAS</span>
+                            </span>
+                        </button>
+                    </div>
+                    
+                    <!-- ACORDEÃO DE MENSAGENS IA -->
+                    <div id="aiMessageResult" class="hidden space-y-3">
+                        
+                        <!-- Mensagem 1 -->
+                        <div class="message-accordion bg-white border border-slate-200 rounded-xl overflow-hidden shadow-sm" id="acc-msg1">
+                            <button onclick="toggleAccordion('acc-msg1')" class="w-full p-4 flex justify-between items-center bg-slate-50 hover:bg-white transition-colors">
+                                <div class="flex items-center gap-3">
+                                    <div class="w-8 h-8 rounded-full bg-blue-100 flex items-center justify-center text-blue-600 font-bold text-xs">1</div>
+                                    <span class="text-xs font-bold text-slate-700 uppercase tracking-wide">Proposta Comercial</span>
+                                </div>
+                                <i class="fa-solid fa-chevron-down text-slate-400 text-xs accordion-icon transition-transform duration-300"></i>
+                            </button>
+                            <div class="accordion-content border-t border-slate-100 bg-white">
+                                <div class="p-4 pt-2">
+                                    <div id="msgContent1" class="text-sm text-slate-600 whitespace-pre-wrap mb-4 font-medium leading-relaxed bg-slate-50 p-3 rounded-lg border border-slate-100"></div>
+                                    <button onclick="copiarTexto('msgContent1', this)" class="w-full py-3 bg-blue-600 text-white rounded-xl text-xs font-bold hover:bg-blue-700 flex items-center justify-center gap-2 transition-colors active:scale-[0.98]">
+                                        <i class="fa-regular fa-copy"></i> COPIAR TEXTO
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Mensagem 2 -->
+                        <div class="message-accordion bg-white border border-slate-200 rounded-xl overflow-hidden shadow-sm" id="acc-msg2">
+                            <button onclick="toggleAccordion('acc-msg2')" class="w-full p-4 flex justify-between items-center bg-slate-50 hover:bg-white transition-colors">
+                                <div class="flex items-center gap-3">
+                                    <div class="w-8 h-8 rounded-full bg-orange-100 flex items-center justify-center text-orange-600 font-bold text-xs">2</div>
+                                    <span class="text-xs font-bold text-slate-700 uppercase tracking-wide">Cobrança de Sinal</span>
+                                </div>
+                                <i class="fa-solid fa-chevron-down text-slate-400 text-xs accordion-icon transition-transform duration-300"></i>
+                            </button>
+                            <div class="accordion-content border-t border-slate-100 bg-white">
+                                <div class="p-4 pt-2">
+                                    <div id="msgContent2" class="text-sm text-slate-600 whitespace-pre-wrap mb-4 font-medium leading-relaxed bg-slate-50 p-3 rounded-lg border border-slate-100"></div>
+                                    <button onclick="copiarTexto('msgContent2', this)" class="w-full py-3 bg-orange-600 text-white rounded-xl text-xs font-bold hover:bg-orange-700 flex items-center justify-center gap-2 transition-colors active:scale-[0.98]">
+                                        <i class="fa-regular fa-copy"></i> COPIAR TEXTO
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Mensagem 3 -->
+                        <div class="message-accordion bg-white border border-slate-200 rounded-xl overflow-hidden shadow-sm" id="acc-msg3">
+                            <button onclick="toggleAccordion('acc-msg3')" class="w-full p-4 flex justify-between items-center bg-slate-50 hover:bg-white transition-colors">
+                                <div class="flex items-center gap-3">
+                                    <div class="w-8 h-8 rounded-full bg-green-100 flex items-center justify-center text-green-600 font-bold text-xs">3</div>
+                                    <span class="text-xs font-bold text-slate-700 uppercase tracking-wide">Finalização / Pós-Obra</span>
+                                </div>
+                                <i class="fa-solid fa-chevron-down text-slate-400 text-xs accordion-icon transition-transform duration-300"></i>
+                            </button>
+                            <div class="accordion-content border-t border-slate-100 bg-white">
+                                <div class="p-4 pt-2">
+                                    <div id="msgContent3" class="text-sm text-slate-600 whitespace-pre-wrap mb-4 font-medium leading-relaxed bg-slate-50 p-3 rounded-lg border border-slate-100"></div>
+                                    <button onclick="copiarTexto('msgContent3', this)" class="w-full py-3 bg-green-600 text-white rounded-xl text-xs font-bold hover:bg-green-700 flex items-center justify-center gap-2 transition-colors active:scale-[0.98]">
+                                        <i class="fa-regular fa-copy"></i> COPIAR TEXTO
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- BOTÕES FINAIS -->
+                    <div class="pt-4 border-t border-slate-200">
+                        <button onclick="reiniciar()" class="w-full bg-white text-slate-500 border border-slate-200 py-4 rounded-2xl font-bold text-xs hover:bg-slate-50 active:bg-slate-100 transition-colors flex items-center justify-center gap-2">
+                            <i class="fa-solid fa-rotate-left"></i> FAZER NOVO ORÇAMENTO
+                        </button>
+                    </div>
+
+                    <!-- PROVA REAL -->
+                    <div class="bg-slate-100 rounded-xl p-4 mt-4">
+                        <label class="block text-center text-[10px] font-bold text-slate-400 uppercase mb-3 tracking-wider">Prova Real: Vai dar prejuízo?</label>
+                        <input type="number" id="valorPensado" oninput="verificarPrejuizo()" 
+                            class="w-full p-3 text-center border border-slate-200 rounded-xl font-black text-lg text-slate-700 focus:outline-none focus:border-blue-500 transition-colors placeholder-slate-400 bg-white" 
+                            placeholder="Digite o valor que pensou cobrar...">
+                        <div id="feedbackBox" class="hidden mt-3 p-3 rounded-lg text-center text-xs font-bold shadow-sm animate-bounce-short"></div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- ==================== MODAL DE CONFIGURAÇÕES ==================== -->
+    <div id="settingsModal" class="fixed inset-0 z-50 hidden transition-opacity duration-300">
+        <div class="modal-overlay absolute inset-0 w-full h-full" onclick="toggleSettings()"></div>
+        
+        <!-- Container Responsivo (Centro no PC / Fundo no Mobile) -->
+        <div class="absolute inset-0 flex items-end sm:items-center justify-center pointer-events-none p-0 sm:p-4">
+            <div class="w-full max-w-lg bg-white rounded-t-3xl sm:rounded-3xl p-6 h-[85vh] sm:h-auto overflow-y-auto pointer-events-auto shadow-2xl transform transition-transform duration-300 translate-y-full flex flex-col" id="modalContent">
+                
+                <div class="flex justify-between items-center mb-6 border-b border-slate-100 pb-4 flex-shrink-0">
+                    <h2 class="text-lg font-black text-slate-800 uppercase flex items-center gap-2">
+                        <i class="fa-solid fa-sliders text-blue-600"></i> Configurações
+                    </h2>
+                    <button onclick="toggleSettings()" class="w-8 h-8 bg-slate-100 rounded-full text-slate-500 hover:bg-slate-200 flex items-center justify-center transition-colors">
+                        <i class="fa-solid fa-xmark text-lg"></i>
+                    </button>
+                </div>
+
+                <div class="space-y-6 flex-grow">
+                    <!-- Veículo -->
+                    <div class="bg-slate-50 p-5 rounded-2xl border border-slate-200">
+                        <h3 class="text-xs font-bold text-slate-500 uppercase mb-4 flex items-center gap-2">
+                            <i class="fa-solid fa-car-side text-blue-500"></i> Veículo & Logística
+                        </h3>
+                        <div class="grid grid-cols-3 gap-2 mb-4">
+                            <button onclick="setVeiculo('utilitario')" class="veiculo-btn p-3 rounded-xl border text-xs font-bold text-center hover:bg-white transition-all shadow-sm active:scale-95" data-type="utilitario">
+                                <i class="fa-solid fa-truck-pickup block text-2xl mb-2 text-slate-400"></i> Utilitário
+                            </button>
+                            <button onclick="setVeiculo('hatch')" class="veiculo-btn p-3 rounded-xl border border-blue-500 bg-white text-blue-700 text-xs font-bold text-center shadow-sm active:scale-95" data-type="hatch">
+                                <i class="fa-solid fa-car block text-2xl mb-2 text-blue-500"></i> Hatch
+                            </button>
+                            <button onclick="setVeiculo('moto')" class="veiculo-btn p-3 rounded-xl border text-xs font-bold text-center hover:bg-white transition-all shadow-sm active:scale-95" data-type="moto">
+                                <i class="fa-solid fa-motorcycle block text-2xl mb-2 text-slate-400"></i> Moto
+                            </button>
+                        </div>
+                        
+                        <div class="grid grid-cols-2 gap-3">
+                            <div>
+                                <label class="block text-[10px] font-bold text-slate-400 mb-1 uppercase">Gasolina (R$)</label>
+                                <input type="number" id="configGasolina" class="input-field w-full p-3 rounded-xl border border-slate-200 text-sm font-bold text-slate-700 bg-white focus:outline-none focus:border-blue-500" value="6.15">
+                            </div>
+                            <div>
+                                <label class="block text-[10px] font-bold text-slate-400 mb-1 uppercase">Custo/Km</label>
+                                <input type="number" id="configManutencao" class="input-field w-full p-3 rounded-xl border border-slate-200 text-sm font-bold bg-slate-100 text-slate-500" readonly>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Financeiro -->
+                    <div class="bg-slate-50 p-5 rounded-2xl border border-slate-200">
+                        <h3 class="text-xs font-bold text-slate-500 uppercase mb-4 flex items-center gap-2">
+                            <i class="fa-solid fa-user-clock text-blue-500"></i> Meta Financeira
+                        </h3>
+                        <div class="mb-4">
+                            <label class="block text-[10px] font-bold text-slate-400 mb-2 uppercase">Salário Livre Desejado</label>
+                            <div class="relative">
+                                <span class="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 font-bold">R$</span>
+                                <input type="number" id="configMetaMensal" class="input-field w-full pl-10 p-3 rounded-xl border border-slate-200 text-sm font-bold text-slate-700 bg-white focus:outline-none focus:border-blue-500" value="4000">
+                            </div>
+                        </div>
+                        <div class="flex justify-between text-xs text-slate-500 bg-white p-3 rounded-xl border border-slate-200 shadow-sm">
+                            <span class="font-medium">Hora Técnica Calculada:</span>
+                            <span class="font-black text-blue-600" id="calcHoraTecnica">R$ 0,00/h</span>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="mt-6 pt-6 border-t border-slate-100 flex-shrink-0">
+                    <button onclick="salvarConfiguracoes()" class="w-full bg-[#0f172a] text-white font-bold py-4 rounded-2xl hover:bg-black active:bg-slate-800 transition-all shadow-lg transform active:scale-[0.99]">
+                        Salvar Alterações
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- ==================== JAVASCRIPT LÓGICO ==================== -->
+    <script>
+        /* CHAVE API DO PROPRIETÁRIO DO PRODUTO (NÃO COMPARTILHE O CÓDIGO ABERTO) */
+        const CHAVE_MESTRA_API = "AIzaSyDfUCinw1hrkc-QkvbTl1cSJHT64vfW-1s"; 
+
+        const DATA_2025 = {
+            veiculos: {
+                utilitario: { eficiencia: 10.5, custoManutencaoKm: 0.35, depreciacaoKm: 0.53 },
+                hatch:      { eficiencia: 10.8, custoManutencaoKm: 0.16, depreciacaoKm: 0.25 },
+                moto:       { eficiencia: 35.0, custoManutencaoKm: 0.12, depreciacaoKm: 0.08 }
+            },
+            mei: { servico: 80.90, horasProdutivas: 145 }
+        };
+
+        /* BANCO DE PREÇOS MÍNIMOS (Sugestão) */
+        const DB_SERVICOS = [
+            { nome: "Instalação de Ar-Condicionado", min: 550 },
+            { nome: "Manutenção Preventiva/Limpeza", min: 250 },
+            { nome: "Manutenção Corretiva", min: 350 },
+            { nome: "Serviço Elétrico (Ponto)", min: 80 },
+            { nome: "Serviço Hidráulico", min: 120 },
+            { nome: "Visita Técnica", min: 100 },
+            { nome: "Outros", min: 0 }
+        ];
+
+        let state = {
+            veiculoSelecionado: 'hatch',
+            gasolinaPreco: 6.15,
+            metaMensal: 4000
+        };
+
+        window.onload = () => {
+            loadState();
+            updateUIFromState();
+            document.getElementById('dataServico').valueAsDate = new Date();
+            adicionarServico(); // Adiciona linha inicial
+        };
+
+        /* --- SERVIÇOS --- */
+        function adicionarServico() {
+            const container = document.getElementById('services-container');
+            const index = container.children.length;
+            
+            const div = document.createElement('div');
+            div.className = "service-row bg-white p-4 rounded-2xl border border-slate-200 shadow-sm animate-fade-in relative";
+            div.innerHTML = `
+                <div class="mb-3">
+                    <label class="block text-[10px] font-bold text-slate-400 uppercase mb-1 ml-1">Selecione o Serviço</label>
+                    <select class="service-select w-full p-3 bg-slate-50 border border-slate-200 rounded-xl text-sm font-bold text-slate-700 outline-none focus:border-blue-500 focus:bg-white transition-colors" onchange="atualizarPrecoSugerido(this)">
+                        <option value="" disabled selected>Clique para escolher...</option>
+                        ${DB_SERVICOS.map(s => `<option value="${s.nome}" data-min="${s.min}">${s.nome}</option>`).join('')}
+                    </select>
+                </div>
+                
+                <div class="flex gap-3 items-end">
+                    <div class="flex-grow relative group">
+                        <label class="block text-[10px] font-bold text-slate-400 uppercase mb-1 ml-1">Valor a Cobrar (Unitário)</label>
+                        <div class="relative">
+                            <span class="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 text-xs font-bold">R$</span>
+                            <input type="number" class="service-price input-field w-full pl-9 p-3 bg-white border border-slate-200 rounded-xl text-sm font-bold text-slate-700 outline-none focus:border-blue-500 focus:ring-1 ring-blue-500 transition-all" placeholder="Mínimo...">
+                        </div>
+                    </div>
+                    
+                    <div class="w-1/3">
+                        <label class="block text-[10px] font-bold text-slate-400 uppercase mb-1 ml-1 text-center">Qtd</label>
+                        <div class="flex items-center justify-between bg-slate-50 rounded-xl p-1 border border-slate-200 h-[46px]">
+                            <div onclick="alterarQtd(this, -1)" class="qty-btn hover:bg-white"><i class="fa-solid fa-minus text-[10px]"></i></div>
+                            <span class="qty-value w-full text-center text-sm font-bold text-slate-700">1</span>
+                            <div onclick="alterarQtd(this, 1)" class="qty-btn hover:bg-white"><i class="fa-solid fa-plus text-[10px]"></i></div>
+                        </div>
+                    </div>
+                </div>
+                ${index > 0 ? `<button onclick="this.closest('.service-row').remove()" class="absolute top-3 right-3 text-slate-300 hover:text-red-400 p-2 transition-colors"><i class="fa-solid fa-trash-can"></i></button>` : ''}
+            `;
+            container.appendChild(div);
+        }
+
+        function atualizarPrecoSugerido(select) {
+            const option = select.options[select.selectedIndex];
+            const minPrice = option.getAttribute('data-min');
+            const row = select.closest('.service-row');
+            const inputPrice = row.querySelector('.service-price');
+            
+            if (minPrice > 0) {
+                inputPrice.placeholder = `Base: R$ ${minPrice}`;
+                inputPrice.setAttribute('data-fallback', minPrice);
+            } else {
+                inputPrice.placeholder = "0,00";
+                inputPrice.removeAttribute('data-fallback');
+            }
+            // Clear value to encourage using fallback or new input
+            inputPrice.value = '';
+        }
+
+        function alterarQtd(btn, delta) {
+            const span = btn.parentElement.querySelector('.qty-value');
+            let qtd = parseInt(span.innerText) + delta;
+            if (qtd < 1) qtd = 1;
+            span.innerText = qtd;
+        }
+
+        /* --- CÁLCULOS --- */
+        function calcularPrecos() {
+            let totalServicos = 0;
+            let listaServicosTexto = [];
+            let hasService = false;
+            
+            document.querySelectorAll('.service-row').forEach(row => {
+                const select = row.querySelector('.service-select');
+                const nome = select.value;
+                const inputPrice = row.querySelector('.service-price');
+                const qtd = parseInt(row.querySelector('.qty-value').innerText);
+                
+                let precoUnitario = parseFloat(inputPrice.value);
+                if (isNaN(precoUnitario)) {
+                    precoUnitario = parseFloat(inputPrice.getAttribute('data-fallback')) || 0;
+                }
+
+                // Changed condition to allow >= 0 so user can set 0 price if desired.
+                if (nome && (precoUnitario >= 0)) {
+                    hasService = true;
+                    totalServicos += (precoUnitario * qtd);
+                    listaServicosTexto.push(`• ${qtd}x ${nome} - R$ ${precoUnitario.toFixed(2).replace('.', ',')} un.`);
+                }
+            });
+
+            if (!hasService) { 
+                alert("Adicione pelo menos um serviço.");
+                shakeButton(); return; 
+            }
+
+            const custoMaterial = parseFloat(document.getElementById('custoPecas').value) || 0;
+            const km = parseFloat(document.getElementById('distanciaKm').value) || 0;
+            
+            const veiculo = DATA_2025.veiculos[state.veiculoSelecionado];
+            const custoCombustivelKm = state.gasolinaPreco / veiculo.eficiencia;
+            const custoKmTotal = custoCombustivelKm + veiculo.custoManutencaoKm + veiculo.depreciacaoKm;
+            const custoLogistica = km * custoKmTotal;
+
+            const custosExtras = custoMaterial + custoLogistica;
+            const precoFinal = totalServicos + custosExtras; 
+
+            renderResultados(precoFinal, totalServicos, custoLogistica, custoMaterial, listaServicosTexto);
+        }
+
+        function renderResultados(final, maoObra, custoLogistica, custoMaterial, listaTexto) {
+            const fmt = (v) => v.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
+
+            document.getElementById('displayPrecoFinal').innerText = fmt(final);
+            document.getElementById('displayLucroLiquido').innerText = fmt(maoObra);
+
+            document.getElementById('displayTotalOperacional').innerText = `Total: ${fmt(maoObra + custoLogistica + custoMaterial)}`;
+            document.getElementById('displayLogistica').innerText = fmt(custoLogistica);
+            document.getElementById('displayMaoObra').innerText = fmt(maoObra);
+            document.getElementById('displayMateriais').innerText = fmt(custoMaterial);
+
+            window.lastCalculation = { 
+                final, 
+                liquido: maoObra, 
+                lucro: 0, 
+                dadosForm: {
+                    prestador: document.getElementById('nomePrestador').value || "Prestador",
+                    cliente: document.getElementById('nomeCliente').value || "Cliente",
+                    data: document.getElementById('dataServico').value,
+                    hora: document.getElementById('horaServico').value, // Nova V8.3
+                    endereco: document.getElementById('enderecoServico').value || "Local do Serviço",
+                    servico: listaTexto.join("\n"), 
+                    detalhes: document.getElementById('detalhesServico').value || "Conforme combinado."
+                }
+            };
+
+            document.getElementById('input-section').classList.add('hidden');
+            document.getElementById('results-section').classList.remove('hidden');
+            window.scrollTo({ top: 0, behavior: 'smooth' });
+        }
+
+        /* --- UI FUNCTIONS --- */
+        function toggleSettings() {
+            const modal = document.getElementById('settingsModal');
+            const content = document.getElementById('modalContent');
+            
+            if (modal.classList.contains('hidden')) {
+                modal.classList.remove('hidden');
+                setTimeout(() => { content.classList.remove('translate-y-full'); }, 10);
+            } else {
+                content.classList.add('translate-y-full');
+                setTimeout(() => { modal.classList.add('hidden'); }, 300);
+            }
+        }
+
+        function toggleAccordion(id) {
+            const element = document.getElementById(id);
+            const wasOpen = element.classList.contains('accordion-open');
+            
+            document.querySelectorAll('.message-accordion').forEach(acc => {
+                acc.classList.remove('accordion-open');
+                acc.querySelector('.accordion-icon').style.transform = 'rotate(0deg)';
+            });
+
+            if (!wasOpen) {
+                element.classList.add('accordion-open');
+                element.querySelector('.accordion-icon').style.transform = 'rotate(180deg)';
+            }
+        }
+
+        function setVeiculo(type) {
+            state.veiculoSelecionado = type;
+            document.querySelectorAll('.veiculo-btn').forEach(btn => {
+                const icon = btn.querySelector('i');
+                if(btn.dataset.type === type) {
+                    btn.classList.add('border-blue-500', 'bg-white', 'text-blue-700', 'shadow-md');
+                    btn.classList.remove('border-slate-200', 'text-slate-400');
+                    if(icon) { icon.classList.remove('text-slate-400'); icon.classList.add('text-blue-500'); }
+                } else {
+                    btn.classList.remove('border-blue-500', 'bg-white', 'text-blue-700', 'shadow-md');
+                    btn.classList.add('border-slate-200', 'text-slate-400');
+                    if(icon) { icon.classList.add('text-slate-400'); icon.classList.remove('text-blue-500'); }
+                }
+            });
+            const vData = DATA_2025.veiculos[type];
+            document.getElementById('configManutencao').value = (vData.custoManutencaoKm + vData.depreciacaoKm).toFixed(2);
+            updateLabels();
+        }
+
+        function salvarConfiguracoes() {
+            state.gasolinaPreco = parseFloat(document.getElementById('configGasolina').value);
+            state.metaMensal = parseFloat(document.getElementById('configMetaMensal').value);
+            localStorage.setItem('calcBlindadaState', JSON.stringify(state));
+            toggleSettings();
+            updateLabels();
+        }
+
+        function loadState() {
+            const saved = localStorage.getItem('calcBlindadaState');
+            if(saved) { state = { ...state, ...JSON.parse(saved) }; }
+        }
+
+        function updateUIFromState() {
+            setVeiculo(state.veiculoSelecionado);
+            document.getElementById('configGasolina').value = state.gasolinaPreco;
+            document.getElementById('configMetaMensal').value = state.metaMensal;
+            updateLabels();
+        }
+
+        function updateLabels() {
+            const vData = DATA_2025.veiculos[state.veiculoSelecionado];
+            const custoKm = (state.gasolinaPreco / vData.eficiencia) + vData.custoManutencaoKm + vData.depreciacaoKm;
+            document.getElementById('custoKmLabel').innerText = `Ref: R$ ${custoKm.toFixed(2)}/km`;
+            
+            const custoMensal = state.metaMensal + DATA_2025.mei.servico;
+            const horaTecnica = custoMensal / DATA_2025.mei.horasProdutivas;
+            document.getElementById('calcHoraTecnica').innerText = `R$ ${horaTecnica.toFixed(2)}/h`;
+        }
+
+        function shakeButton() {
+            const btn = document.querySelector('#input-section button');
+            if(btn) {
+                btn.classList.add('shake-animation');
+                setTimeout(() => btn.classList.remove('shake-animation'), 500);
+            }
+        }
+
+        function reiniciar() {
+            document.getElementById('input-section').classList.remove('hidden');
+            document.getElementById('results-section').classList.add('hidden');
+            document.getElementById('services-container').innerHTML = '';
+            adicionarServico();
+            document.getElementById('valorPensado').value = '';
+            document.getElementById('feedbackBox').classList.add('hidden');
+            document.getElementById('aiMessageResult').classList.add('hidden');
+            // Reset acordeões
+            document.querySelectorAll('.message-accordion').forEach(acc => acc.classList.remove('accordion-open'));
+            window.scrollTo({ top: 0, behavior: 'smooth' });
+        }
+
+        function verificarPrejuizo() {
+            const val = parseFloat(document.getElementById('valorPensado').value);
+            const box = document.getElementById('feedbackBox');
+            const liquidoReal = window.lastCalculation.final; 
+            if(!val) { box.classList.add('hidden'); return; }
+            
+            box.classList.remove('hidden', 'bg-red-100', 'text-red-700', 'bg-green-100', 'text-green-700', 'bg-orange-100', 'text-orange-700', 'bg-white', 'text-slate-700');
+
+            if(val < liquidoReal * 0.8) { 
+                box.classList.add('bg-red-100', 'text-red-700');
+                box.innerHTML = `<i class="fa-solid fa-skull-crossbones text-xl block mb-1"></i> CUIDADO! Prejuízo provável.`;
+            } else if (val < liquidoReal) { 
+                box.classList.add('bg-orange-100', 'text-orange-700');
+                box.innerHTML = `<i class="fa-solid fa-triangle-exclamation text-xl block mb-1"></i> Margem apertada.`;
+            } else {
+                box.classList.add('bg-green-100', 'text-green-700');
+                box.innerHTML = `<i class="fa-solid fa-check-circle text-xl block mb-1"></i> PREÇO SEGURO! Lucro garantido.`;
+            }
+        }
+
+        /* --- INTEGRAÇÃO IA --- */
+        async function callGemini(prompt) {
+            if(!CHAVE_MESTRA_API || CHAVE_MESTRA_API.length < 20) { 
+                alert("Chave API não configurada."); return null; 
+            }
+            const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-09-2025:generateContent?key=${CHAVE_MESTRA_API}`;
+            try {
+                const response = await fetch(url, {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({ contents: [{ parts: [{ text: prompt }] }] })
+                });
+                const data = await response.json();
+                return data.candidates[0].content.parts[0].text;
+            } catch(e) {
+                alert("Erro ao conectar com a IA. Tente novamente."); return null;
+            }
+        }
+
+        async function gerarOrcamentoIA() {
+            const { final, dadosForm } = window.lastCalculation;
+            const fmt = (v) => v.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
+            
+            const btn = document.getElementById('btnJustificativa');
+            const txt = document.getElementById('txtBtnWpp');
+            const original = txt.innerText;
+            txt.innerText = "CRIANDO MENSAGENS..."; btn.disabled = true;
+
+            const prompt = `
+            Aja como assistente comercial. Crie 3 mensagens de WhatsApp profissionais.
+            
+            DADOS:
+            - Prestador: ${dadosForm.prestador}
+            - Cliente: ${dadosForm.cliente}
+            - Local/Data: ${dadosForm.endereco} | ${dadosForm.data} às ${dadosForm.hora}
+            - Obs: ${dadosForm.detalhes}
+            
+            SERVIÇOS (LISTA):
+            ${dadosForm.servico}
+            
+            TOTAL: ${fmt(final)} (Parcelamento disponível)
+
+            MENSAGEM 1 (PROPOSTA):
+            Apresente o orçamento formal. Liste os itens com valores. Destaque a garantia e qualidade. Pergunte se pode agendar.
+            
+            MENSAGEM 2 (SINAL/FECHAMENTO):
+            Para confirmar o serviço. Peça um "ok" ou sinal. Espaço para [CHAVE PIX].
+            
+            MENSAGEM 3 (FINALIZAÇÃO):
+            Serviço concluído. Cobrança do valor restante. Agradecimento.
+
+            REGRAS:
+            - Separe com "---DIVISAO---".
+            - Use *negrito* do WhatsApp.
+            - Use emojis profissionais.
+            - NÃO use tabelas. Use lista com bullets (•).
+            `;
+
+            const resp = await callGemini(prompt);
+            txt.innerText = original; btn.disabled = false;
+            
+            if (resp) {
+                const partes = resp.split("---DIVISAO---");
+                document.getElementById('msgContent1').innerText = partes[0].trim();
+                document.getElementById('msgContent2').innerText = partes[1] ? partes[1].trim() : "Erro msg 2";
+                document.getElementById('msgContent3').innerText = partes[2] ? partes[2].trim() : "Erro msg 3";
+                
+                document.getElementById('aiMessageResult').classList.remove('hidden');
+                document.getElementById('aiMessageResult').scrollIntoView({ behavior: 'smooth' });
+                toggleAccordion('acc-msg1');
+            }
+        }
+
+        function copiarTexto(id, btn) {
+            const texto = document.getElementById(id).innerText;
+            const textarea = document.createElement("textarea");
+            textarea.value = texto;
+            document.body.appendChild(textarea);
+            textarea.select();
+            try {
+                document.execCommand('copy');
+                const org = btn.innerHTML;
+                btn.innerHTML = '<i class="fa-solid fa-check"></i> COPIADO!';
+                setTimeout(() => btn.innerHTML = org, 2000);
+            } catch (err) {
+                alert("Erro ao copiar. Tente manualmente.");
+            }
+            document.body.removeChild(textarea);
+        }
+    </script>
+</body>
+</html>
