@@ -1,0 +1,776 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    
+    <title>Calculadora Blindada PRO 3.5 | HVAC Edition</title>
+    <meta name="description" content="Ferramenta profissional para técnicos de refrigeração.">
+    <meta name="theme-color" content="#0f172a">
+
+    <!-- FAVICON -->
+    <link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>❄️</text></svg>">
+
+    <!-- LIBRARIES -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    
+    <!-- ESTILOS -->
+    <style>
+        body { 
+            font-family: 'Inter', sans-serif; 
+            background-color: #f8fafc; 
+            -webkit-font-smoothing: antialiased;
+        }
+        
+        input, select, textarea { font-size: 16px !important; }
+        
+        /* Remove setas input number */
+        .input-field::-webkit-outer-spin-button, .input-field::-webkit-inner-spin-button { -webkit-appearance: none; margin: 0; }
+        .input-field { -moz-appearance: textfield; }
+        
+        .input-field:focus { 
+            border-color: #2563eb; 
+            box-shadow: 0 0 0 4px rgba(37, 99, 235, 0.1); 
+        }
+
+        /* ACORDEÃO - LÓGICA SIMPLIFICADA E ROBUSTA */
+        .accordion-content { 
+            max-height: 0; 
+            opacity: 0; 
+            overflow: hidden; 
+            transition: max-height 0.3s ease-in-out, opacity 0.3s ease-in-out;
+        }
+        
+        /* Quando a classe .accordion-open é adicionada pelo JS, forçamos a altura */
+        .accordion-open .accordion-content { 
+            max-height: 1000px !important; /* Altura grande o suficiente para qualquer msg */
+            opacity: 1 !important;
+        }
+        
+        .accordion-icon { transition: transform 0.3s ease; }
+        .accordion-open .accordion-icon { transform: rotate(180deg); }
+
+        .modal-overlay { background-color: rgba(15, 23, 42, 0.6); backdrop-filter: blur(4px); }
+        
+        /* Animações */
+        @keyframes fadeInUp {
+            from { opacity: 0; transform: translate3d(0, 20px, 0); }
+            to { opacity: 1; transform: translate3d(0, 0, 0); }
+        }
+        .animate-fade-in-up { animation: fadeInUp 0.5s ease-out forwards; }
+
+        /* ESTILOS DE IMPRESSÃO (PDF) */
+        @media print {
+            body * { visibility: hidden; }
+            #printable-area, #printable-area * { visibility: visible; }
+            #printable-area { 
+                position: absolute; 
+                left: 0; 
+                top: 0; 
+                width: 100%; 
+                background: white;
+                padding: 0;
+                margin: 0;
+                display: block !important;
+                z-index: 9999;
+            }
+            .no-print { display: none !important; }
+            @page { margin: 1cm; size: A4; }
+        }
+    </style>
+</head>
+<body class="text-slate-800">
+
+    <div class="app-wrapper min-h-[100dvh] flex flex-col items-center justify-center p-4 no-print pb-20">
+        
+        <!-- CARD PRINCIPAL -->
+        <div class="w-full max-w-md bg-white rounded-3xl overflow-hidden border border-slate-200 shadow-2xl relative z-10 flex flex-col">
+            
+            <!-- CABEÇALHO -->
+            <header class="bg-[#0f172a] text-white p-6 pb-10 relative overflow-hidden flex justify-between items-start">
+                <div class="absolute top-0 right-0 w-32 h-32 bg-blue-500 rounded-full opacity-10 blur-3xl transform translate-x-10 -translate-y-10 pointer-events-none"></div>
+                
+                <div class="z-10 flex items-center gap-3">
+                    <!-- Área do Logo -->
+                    <div id="headerLogoArea" class="hidden w-12 h-12 bg-white rounded-lg overflow-hidden flex items-center justify-center border border-slate-700">
+                        <img id="headerLogoImg" src="" alt="Logo" class="w-full h-full object-contain">
+                    </div>
+                    <div>
+                        <div class="flex items-center gap-2 mb-1 opacity-90">
+                            <i class="fa-solid fa-snowflake text-blue-400 text-xl"></i>
+                            <span class="text-[10px] font-bold uppercase tracking-widest text-blue-200">REFRIGERAÇÃO</span>
+                        </div>
+                        <h1 class="text-xl font-black uppercase tracking-wide text-white leading-tight">
+                            CALCULADORA <span class="text-blue-500">PRO 3.5</span>
+                        </h1>
+                    </div>
+                </div>
+                
+                <button onclick="toggleSettings()" class="z-10 text-slate-400 hover:text-white transition-colors p-2 bg-slate-800/50 rounded-xl border border-slate-700/50" title="Configurações">
+                    <i class="fa-solid fa-gear text-lg"></i>
+                </button>
+            </header>
+
+            <!-- CONTEÚDO -->
+            <div class="relative -mt-6 bg-white rounded-t-[2rem] px-6 pt-8 pb-8 flex-grow shadow-[0_-10px_20px_-5px_rgba(0,0,0,0.1)]">
+                
+                <!-- TELA 1: INPUTS -->
+                <div id="input-section" class="space-y-6">
+                    
+                    <!-- Dados Cliente -->
+                    <div class="bg-slate-50 p-4 rounded-2xl border border-slate-100 space-y-3">
+                        <label class="block text-xs font-bold text-blue-600 uppercase tracking-wide mb-2">
+                            <i class="fa-solid fa-user-pen"></i> Dados do Orçamento
+                        </label>
+                        <input type="text" id="nomePrestador" placeholder="Seu Nome / Sua Empresa" class="input-field w-full p-3 bg-white border border-slate-200 rounded-xl text-sm font-semibold text-slate-700 focus:outline-none placeholder-slate-400">
+                        <input type="text" id="nomeCliente" placeholder="Nome do Cliente" class="input-field w-full p-3 bg-white border border-slate-200 rounded-xl text-sm font-semibold text-slate-700 focus:outline-none placeholder-slate-400">
+                        
+                        <!-- CAMPO DE ENDEREÇO RESTAURADO -->
+                        <input type="text" id="enderecoServico" placeholder="Endereço / Local do Serviço" class="input-field w-full p-3 bg-white border border-slate-200 rounded-xl text-sm font-semibold text-slate-700 focus:outline-none placeholder-slate-400">
+
+                        <div class="grid grid-cols-3 gap-2">
+                            <div class="col-span-1">
+                                <label class="text-[10px] font-bold text-slate-400 uppercase ml-1">Data</label>
+                                <input type="date" id="dataServico" class="input-field w-full p-2 bg-white border border-slate-200 rounded-xl text-xs font-semibold text-slate-700 focus:outline-none text-center">
+                            </div>
+                            <div class="col-span-1">
+                                <label class="text-[10px] font-bold text-slate-400 uppercase ml-1">Hora</label>
+                                <input type="time" id="horaServico" value="09:00" class="input-field w-full p-2 bg-white border border-slate-200 rounded-xl text-xs font-semibold text-slate-700 focus:outline-none text-center">
+                            </div>
+                            <!-- CAMPO DE GARANTIA -->
+                            <div class="col-span-1">
+                                <label class="text-[10px] font-bold text-slate-400 uppercase ml-1">Garantia (Dias)</label>
+                                <input type="number" id="inputGarantia" placeholder="90" value="90" class="input-field w-full p-2 bg-white border border-slate-200 rounded-xl text-xs font-semibold text-slate-700 focus:outline-none text-center">
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Serviços -->
+                    <div class="space-y-4">
+                        <div class="flex justify-between items-center px-1">
+                            <label class="text-xs font-bold text-slate-500 uppercase tracking-wide">
+                                <i class="fa-solid fa-list-check mr-1"></i> Serviços a Executar
+                            </label>
+                        </div>
+                        <div id="services-container" class="space-y-3"></div>
+                        
+                        <button onclick="adicionarServico()" class="w-full py-3 border-2 border-dashed border-slate-300 rounded-xl text-xs font-bold text-slate-500 hover:border-blue-500 hover:text-blue-600 hover:bg-blue-50 transition-all flex items-center justify-center gap-2">
+                            <i class="fa-solid fa-circle-plus"></i> ADICIONAR OUTRO SERVIÇO
+                        </button>
+                        
+                        <div class="relative">
+                            <i class="fa-solid fa-pen absolute top-3 left-3 text-slate-300 text-xs"></i>
+                            <textarea id="detalhesServico" rows="2" placeholder="Detalhes técnicos (Ex: Tubulação de cobre, suporte externo...)" class="input-field w-full pl-9 p-3 bg-slate-50 border border-slate-200 rounded-xl text-sm font-medium text-slate-700 focus:outline-none resize-none placeholder-slate-400"></textarea>
+                        </div>
+                    </div>
+
+                    <!-- Custos -->
+                    <div class="pt-4 border-t border-slate-100">
+                        <label class="block text-xs font-bold text-slate-500 uppercase tracking-wide ml-1 mb-3">
+                            <i class="fa-solid fa-coins mr-1"></i> Custos Operacionais
+                        </label>
+                        <div class="relative group mb-3">
+                            <div class="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 font-bold text-xs">R$</div>
+                            <input type="number" id="custoPecas" placeholder="0,00" class="input-field w-full pl-10 pr-20 py-3 bg-white border border-slate-200 rounded-xl text-lg font-bold text-slate-700 focus:outline-none" inputmode="decimal">
+                            <span class="absolute right-4 top-1/2 -translate-y-1/2 text-xs font-bold text-slate-300 uppercase pointer-events-none">Gasto c/ Material</span>
+                        </div>
+                        <div class="grid grid-cols-2 gap-4">
+                            <div class="relative">
+                                <i class="fa-solid fa-route absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 text-xs"></i>
+                                <input type="number" id="distanciaKm" placeholder="Km Total" class="input-field w-full pl-9 py-3 bg-white border border-slate-200 rounded-xl text-sm font-bold text-slate-700 focus:outline-none" inputmode="numeric">
+                            </div>
+                            <div class="relative">
+                                <i class="fa-regular fa-clock absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 text-xs"></i>
+                                <input type="number" id="tempoHoras" placeholder="Hrs Trab." class="input-field w-full pl-9 py-3 bg-white border border-slate-200 rounded-xl text-sm font-bold text-slate-700 focus:outline-none" inputmode="decimal">
+                            </div>
+                        </div>
+                    </div>
+
+                    <button onclick="calcularPrecos()" class="w-full bg-blue-600 text-white font-black py-4 rounded-2xl shadow-lg shadow-blue-600/30 active:scale-[0.98] transition-transform text-lg mt-4 flex items-center justify-center gap-3">
+                        CALCULAR AGORA <i class="fa-solid fa-arrow-right"></i>
+                    </button>
+                </div>
+
+                <!-- TELA 2: RESULTADOS -->
+                <div id="results-section" class="hidden space-y-6 animate-fade-in-up">
+                    
+                    <!-- Detalhamento de Custos -->
+                    <div class="bg-white rounded-2xl p-4 border border-slate-200 shadow-sm">
+                        <div class="flex justify-between items-center mb-4 border-b border-slate-100 pb-2">
+                            <span class="text-xs font-bold text-slate-500 uppercase tracking-wide">Composição do Preço</span>
+                            <span class="text-[10px] font-bold text-slate-400 bg-slate-100 px-2 py-1 rounded">Custos Totais</span>
+                        </div>
+                        <div class="grid grid-cols-3 gap-2 text-center">
+                            <!-- Logística -->
+                            <div class="flex flex-col items-center p-2 rounded-lg bg-blue-50/50">
+                                <div class="w-8 h-8 rounded-full bg-blue-100 text-blue-600 flex items-center justify-center mb-1">
+                                    <i class="fa-solid fa-truck-fast text-xs"></i>
+                                </div>
+                                <span class="text-[10px] font-bold text-slate-400 uppercase">Logística</span>
+                                <span class="text-xs font-black text-slate-700" id="displayLogistica">R$ 0,00</span>
+                            </div>
+                            
+                            <!-- Mão de Obra -->
+                            <div class="flex flex-col items-center p-2 rounded-lg bg-green-50/50 border border-green-100 relative shadow-sm">
+                                <div class="w-8 h-8 rounded-full bg-green-100 text-green-600 flex items-center justify-center mb-1">
+                                    <i class="fa-solid fa-screwdriver-wrench text-xs"></i>
+                                </div>
+                                <span class="text-[10px] font-bold text-slate-400 uppercase">Mão de Obra</span>
+                                <span class="text-xs font-black text-slate-700" id="displayMaoObra">R$ 0,00</span>
+                            </div>
+
+                            <!-- Materiais -->
+                            <div class="flex flex-col items-center p-2 rounded-lg bg-orange-50/50">
+                                <div class="w-8 h-8 rounded-full bg-orange-100 text-orange-600 flex items-center justify-center mb-1">
+                                    <i class="fa-solid fa-box-open text-xs"></i>
+                                </div>
+                                <span class="text-[10px] font-bold text-slate-400 uppercase">Materiais</span>
+                                <span class="text-xs font-black text-slate-700" id="displayMateriais">R$ 0,00</span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Valor Final (Destaque) -->
+                    <div class="bg-[#0f172a] p-6 rounded-3xl shadow-xl text-white text-center relative overflow-hidden ring-4 ring-slate-100">
+                        <div class="relative z-10">
+                            <p class="text-xs font-bold text-blue-300 uppercase mb-2 tracking-widest">Valor Sugerido ao Cliente</p>
+                            <p class="text-5xl font-black mb-4 tracking-tighter" id="displayPrecoFinal">R$ 0,00</p>
+                            
+                            <div class="bg-white/10 p-3 rounded-xl border border-white/10 backdrop-blur-sm">
+                                <p class="text-[10px] text-slate-300 uppercase font-bold mb-1">Lucro Líquido Estimado</p>
+                                <p class="text-xl font-bold text-green-400" id="displayLucroLiquido">R$ 0,00</p>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Ações Rápidas -->
+                    <div class="grid grid-cols-2 gap-3">
+                         <button onclick="imprimirOrcamento()" class="bg-white border border-slate-200 text-slate-600 py-3 rounded-xl font-bold text-xs flex items-center justify-center gap-2 hover:bg-slate-50 transition-colors shadow-sm">
+                            <i class="fa-solid fa-file-pdf text-red-500 text-base"></i> GERAR PDF
+                        </button>
+                        <button onclick="reiniciar()" class="bg-white border border-slate-200 text-slate-600 py-3 rounded-xl font-bold text-xs flex items-center justify-center gap-2 hover:bg-slate-50 transition-colors shadow-sm">
+                            <i class="fa-solid fa-rotate-left text-blue-500 text-base"></i> NOVO CÁLCULO
+                        </button>
+                    </div>
+
+                    <!-- Mensagens (Opção Única) -->
+                    <div class="space-y-3">
+                        <h3 class="text-xs font-bold text-slate-400 uppercase text-center py-2 tracking-widest">Copiar Mensagens Prontas</h3>
+                        
+                        <!-- MSG 1: Orçamento -->
+                        <div class="message-accordion bg-white border border-slate-200 rounded-xl overflow-hidden" id="acc-msg1">
+                            <button onclick="toggleAccordion('acc-msg1')" class="w-full p-4 flex justify-between items-center bg-slate-50 hover:bg-white transition-colors">
+                                <span class="text-xs font-bold text-slate-700 uppercase flex items-center gap-2">
+                                    <span class="w-6 h-6 rounded-full bg-blue-100 text-blue-600 flex items-center justify-center text-[10px]">1</span> 
+                                    Proposta Comercial
+                                </span>
+                                <i class="fa-solid fa-chevron-down text-slate-400 text-xs accordion-icon"></i>
+                            </button>
+                            <div class="accordion-content border-t border-slate-100">
+                                <div class="p-4 bg-slate-50">
+                                    <div class="bg-white p-4 rounded-xl border border-slate-200 shadow-sm">
+                                        <!-- ID RENOMEADO PARA txt_proposta -->
+                                        <div id="txt_proposta" class="text-sm text-slate-700 whitespace-pre-wrap font-medium leading-relaxed mb-3"></div>
+                                        <button onclick="copiarTexto('txt_proposta', this)" class="w-full py-2 bg-blue-50 text-blue-600 rounded-lg text-xs font-bold hover:bg-blue-100 transition-colors flex items-center justify-center gap-2">
+                                            <i class="fa-regular fa-copy"></i> COPIAR MENSAGEM
+                                        </button>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- MSG 2: Sinal -->
+                        <div class="message-accordion bg-white border border-slate-200 rounded-xl overflow-hidden" id="acc-msg2">
+                            <button onclick="toggleAccordion('acc-msg2')" class="w-full p-4 flex justify-between items-center bg-slate-50 hover:bg-white transition-colors">
+                                <span class="text-xs font-bold text-slate-700 uppercase flex items-center gap-2">
+                                    <span class="w-6 h-6 rounded-full bg-orange-100 text-orange-600 flex items-center justify-center text-[10px]">2</span> 
+                                    Cobrança de Sinal
+                                </span>
+                                <i class="fa-solid fa-chevron-down text-slate-400 text-xs accordion-icon"></i>
+                            </button>
+                            <div class="accordion-content border-t border-slate-100">
+                                <div class="p-4 bg-slate-50">
+                                    <div class="bg-white p-4 rounded-xl border border-slate-200 shadow-sm">
+                                        <!-- ID RENOMEADO PARA txt_sinal -->
+                                        <div id="txt_sinal" class="text-sm text-slate-700 whitespace-pre-wrap font-medium leading-relaxed mb-3"></div>
+                                        <button onclick="copiarTexto('txt_sinal', this)" class="w-full py-2 bg-orange-50 text-orange-600 rounded-lg text-xs font-bold hover:bg-orange-100 transition-colors flex items-center justify-center gap-2">
+                                            <i class="fa-regular fa-copy"></i> COPIAR MENSAGEM
+                                        </button>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                         <!-- MSG 3: Finalização -->
+                         <div class="message-accordion bg-white border border-slate-200 rounded-xl overflow-hidden" id="acc-msg3">
+                            <button onclick="toggleAccordion('acc-msg3')" class="w-full p-4 flex justify-between items-center bg-slate-50 hover:bg-white transition-colors">
+                                <span class="text-xs font-bold text-slate-700 uppercase flex items-center gap-2">
+                                    <span class="w-6 h-6 rounded-full bg-green-100 text-green-600 flex items-center justify-center text-[10px]">3</span> 
+                                    Serviço Finalizado
+                                </span>
+                                <i class="fa-solid fa-chevron-down text-slate-400 text-xs accordion-icon"></i>
+                            </button>
+                            <div class="accordion-content border-t border-slate-100">
+                                <div class="p-4 bg-slate-50">
+                                    <div class="bg-white p-4 rounded-xl border border-slate-200 shadow-sm">
+                                        <!-- ID RENOMEADO PARA txt_final -->
+                                        <div id="txt_final" class="text-sm text-slate-700 whitespace-pre-wrap font-medium leading-relaxed mb-3"></div>
+                                        <button onclick="copiarTexto('txt_final', this)" class="w-full py-2 bg-green-50 text-green-600 rounded-lg text-xs font-bold hover:bg-green-100 transition-colors flex items-center justify-center gap-2">
+                                            <i class="fa-regular fa-copy"></i> COPIAR MENSAGEM
+                                        </button>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- ÁREA DE IMPRESSÃO OCULTA (LAYOUT PDF) -->
+    <div id="printable-area" class="hidden">
+        <div style="font-family: 'Inter', sans-serif; color: #334155; max-width: 800px; margin: 0 auto; padding: 40px;">
+            <!-- Header -->
+            <div style="display: flex; justify-content: space-between; align-items: flex-start; border-bottom: 2px solid #e2e8f0; padding-bottom: 20px; margin-bottom: 30px;">
+                <div style="display: flex; gap: 20px; align-items: center;">
+                    <img id="printLogo" src="" style="height: 80px; width: auto; object-fit: contain; display: none;">
+                    <div>
+                        <h1 style="font-size: 24px; font-weight: 800; color: #0f172a; margin: 0; line-height: 1.2;" id="printPrestador">Prestador</h1>
+                        <p style="font-size: 14px; color: #64748b; margin: 5px 0 0 0;">Orçamento Técnico Profissional</p>
+                    </div>
+                </div>
+                <div style="text-align: right;">
+                    <div style="font-size: 24px; font-weight: 900; color: #2563eb; margin-bottom: 5px;">ORÇAMENTO</div>
+                    <div style="font-size: 14px; color: #64748b;" id="printData">Data: --/--/----</div>
+                </div>
+            </div>
+
+            <!-- Cliente -->
+            <div style="background-color: #f8fafc; padding: 20px; border-radius: 12px; margin-bottom: 30px;">
+                <h3 style="font-size: 12px; font-weight: 700; text-transform: uppercase; color: #94a3b8; margin: 0 0 10px 0;">Dados do Cliente</h3>
+                <p style="font-size: 18px; font-weight: 700; color: #0f172a; margin: 0 0 5px 0;" id="printCliente">Nome do Cliente</p>
+                <p style="font-size: 14px; color: #475569; margin: 0 0 5px 0;" id="printEndereco">Endereço do Cliente</p>
+                <p style="font-size: 14px; color: #475569; margin: 0;" id="printDetalhes">Detalhes adicionais...</p>
+            </div>
+
+            <!-- Tabela -->
+            <table style="width: 100%; border-collapse: collapse; margin-bottom: 30px;">
+                <thead>
+                    <tr style="border-bottom: 2px solid #e2e8f0;">
+                        <th style="text-align: left; padding: 10px 0; font-size: 12px; text-transform: uppercase; color: #64748b; font-weight: 700;">Descrição do Serviço</th>
+                        <th style="text-align: center; padding: 10px 0; font-size: 12px; text-transform: uppercase; color: #64748b; font-weight: 700;">Qtd</th>
+                        <th style="text-align: right; padding: 10px 0; font-size: 12px; text-transform: uppercase; color: #64748b; font-weight: 700;">Total</th>
+                    </tr>
+                </thead>
+                <tbody id="printServicesList" style="font-size: 14px; color: #334155;">
+                    <!-- Itens via JS -->
+                </tbody>
+            </table>
+
+            <!-- Totais -->
+            <div style="display: flex; justify-content: flex-end;">
+                <div style="width: 250px;">
+                    <div style="display: flex; justify-content: space-between; margin-bottom: 10px; font-size: 14px; color: #64748b;">
+                        <span>Peças/Materiais:</span>
+                        <span style="font-weight: 600;" id="printMateriais">R$ 0,00</span>
+                    </div>
+                    <div style="display: flex; justify-content: space-between; border-top: 2px solid #0f172a; padding-top: 15px; margin-top: 10px;">
+                        <span style="font-size: 16px; font-weight: 800; color: #0f172a;">TOTAL GERAL</span>
+                        <span style="font-size: 20px; font-weight: 900; color: #2563eb;" id="printTotal">R$ 0,00</span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Rodapé -->
+            <div style="margin-top: 60px; padding-top: 20px; border-top: 1px solid #e2e8f0; text-align: center; font-size: 12px; color: #94a3b8;">
+                <p style="margin: 0 0 5px 0;">Este orçamento é válido por 10 dias a partir da data de emissão.</p>
+                <p style="margin: 0;">Garantia de Serviços: <span id="printGarantia" style="font-weight: 700; color: #475569;">90 dias</span> | Emitido via Calculadora Blindada PRO</p>
+            </div>
+        </div>
+    </div>
+
+    <!-- MODAL DE CONFIGURAÇÕES -->
+    <div id="settingsModal" class="fixed inset-0 z-50 hidden">
+        <div class="modal-overlay absolute inset-0 w-full h-full" onclick="toggleSettings()"></div>
+        <div class="absolute inset-x-0 bottom-0 sm:inset-auto sm:top-1/2 sm:left-1/2 sm:-translate-x-1/2 sm:-translate-y-1/2 w-full max-w-lg bg-white rounded-t-3xl sm:rounded-3xl p-6 h-[85vh] sm:h-auto overflow-y-auto transform transition-transform duration-300 translate-y-full shadow-2xl" id="modalContent">
+            
+            <div class="flex justify-between items-center mb-6 border-b pb-4">
+                <h2 class="text-lg font-black text-slate-800 uppercase"><i class="fa-solid fa-sliders text-blue-600 mr-2"></i> Configurações</h2>
+                <button onclick="toggleSettings()" class="w-8 h-8 bg-slate-100 rounded-full flex items-center justify-center"><i class="fa-solid fa-xmark"></i></button>
+            </div>
+
+            <div class="space-y-6">
+                <!-- Branding -->
+                <div class="bg-slate-50 p-4 rounded-xl border border-slate-200">
+                    <h3 class="text-xs font-bold text-slate-500 uppercase mb-3"><i class="fa-solid fa-image text-blue-500 mr-1"></i> Seu Logótipo</h3>
+                    <input type="file" id="logoInput" accept="image/*" onchange="handleLogoUpload(this)" class="block w-full text-xs text-slate-500 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-xs file:font-semibold file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100"/>
+                    <button onclick="removerLogo()" class="text-[10px] text-red-500 font-bold mt-2 uppercase hover:underline">Remover Logo</button>
+                </div>
+
+                <!-- Gestor de Serviços -->
+                <div class="bg-slate-50 p-4 rounded-xl border border-slate-200">
+                    <h3 class="text-xs font-bold text-slate-500 uppercase mb-3"><i class="fa-solid fa-list text-blue-500 mr-1"></i> Base de Serviços</h3>
+                    
+                    <div class="flex gap-2 mb-3">
+                        <input type="text" id="novoServicoNome" placeholder="Nome do Serviço" class="input-field flex-grow p-2 rounded-lg border border-slate-200 text-xs">
+                        <input type="number" id="novoServicoValor" placeholder="Min (R$)" class="input-field w-20 p-2 rounded-lg border border-slate-200 text-xs">
+                        <button onclick="adicionarServicoBase()" class="bg-blue-600 text-white p-2 rounded-lg"><i class="fa-solid fa-plus"></i></button>
+                    </div>
+
+                    <div id="listaServicosBase" class="max-h-40 overflow-y-auto space-y-1 pr-1 custom-scrollbar">
+                        <!-- Lista gerada via JS -->
+                    </div>
+                </div>
+                
+                <button onclick="salvarConfiguracoes()" class="w-full bg-[#0f172a] text-white font-bold py-4 rounded-2xl hover:bg-black transition-all">
+                    SALVAR ALTERAÇÕES
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- JAVASCRIPT -->
+    <script>
+        // --- BASE DE DADOS HVAC COMPLETA ---
+        const HVAC_SERVICES = [
+            { nome: "Instalação Split 9000/12000 BTUs", min: 500 },
+            { nome: "Instalação Split 18000/24000 BTUs", min: 750 },
+            { nome: "Instalação Piso Teto / Cassete", min: 1200 },
+            { nome: "Limpeza e Higienização (Simples)", min: 200 },
+            { nome: "Limpeza Química (Desmontagem)", min: 350 },
+            { nome: "Carga de Gás (R410A/R22/R32)", min: 280 },
+            { nome: "Troca de Capacitor / Relé", min: 180 },
+            { nome: "Correção de Vazamento (Flange)", min: 250 },
+            { nome: "Visita Técnica / Diagnóstico", min: 120 },
+            { nome: "Infraestrutura (Metro Linear)", min: 100 }
+        ];
+
+        let state = {
+            veiculo: 'hatch',
+            gasolina: 6.15,
+            logoBase64: null,
+            meusServicos: [] 
+        };
+
+        const DATA_VEICULOS = {
+            utilitario: { eficiencia: 10.5, custoKm: 0.88 },
+            hatch:      { eficiencia: 11.0, custoKm: 0.45 },
+            moto:       { eficiencia: 35.0, custoKm: 0.20 }
+        };
+
+        // --- INICIALIZAÇÃO ---
+        window.onload = () => {
+            loadState();
+            
+            // Garante que a lista de serviços esteja populada
+            if(state.meusServicos.length === 0) {
+                state.meusServicos = JSON.parse(JSON.stringify(HVAC_SERVICES));
+            }
+
+            document.getElementById('dataServico').valueAsDate = new Date();
+            adicionarServico(); 
+            renderListaServicosBase(); 
+        };
+
+        function loadState() {
+            const saved = localStorage.getItem('calcBlindadaV3');
+            if(saved) { 
+                const loaded = JSON.parse(saved);
+                state = { ...state, ...loaded };
+            }
+            applyConfigToUI();
+        }
+
+        function saveState() {
+            localStorage.setItem('calcBlindadaV3', JSON.stringify(state));
+        }
+
+        function applyConfigToUI() {
+            if(state.logoBase64) {
+                document.getElementById('headerLogoArea').classList.remove('hidden');
+                document.getElementById('headerLogoImg').src = state.logoBase64;
+                document.getElementById('printLogo').src = state.logoBase64;
+                document.getElementById('printLogo').style.display = 'block';
+            } else {
+                document.getElementById('headerLogoArea').classList.add('hidden');
+                document.getElementById('printLogo').style.display = 'none';
+            }
+        }
+
+        // --- LOGO LOGIC ---
+        function handleLogoUpload(input) {
+            if (input.files && input.files[0]) {
+                const reader = new FileReader();
+                reader.onload = function(e) {
+                    state.logoBase64 = e.target.result;
+                    document.getElementById('headerLogoImg').src = state.logoBase64; 
+                    document.getElementById('printLogo').src = state.logoBase64;
+                }
+                reader.readAsDataURL(input.files[0]);
+            }
+        }
+        function removerLogo() {
+            state.logoBase64 = null;
+            document.getElementById('logoInput').value = "";
+            document.getElementById('headerLogoArea').classList.add('hidden');
+            document.getElementById('printLogo').style.display = 'none';
+        }
+
+        // --- UI DE SERVIÇOS ---
+        function adicionarServico() {
+            const container = document.getElementById('services-container');
+            const div = document.createElement('div');
+            div.className = "service-row bg-white p-3 rounded-2xl border border-slate-200 shadow-sm relative animate-fade-in-up";
+            
+            let options = `<option value="" disabled selected>Selecione...</option>`;
+            state.meusServicos.forEach(s => {
+                options += `<option value="${s.nome}" data-min="${s.min}">${s.nome}</option>`;
+            });
+
+            div.innerHTML = `
+                <div class="mb-2 pr-6">
+                    <select class="service-select w-full p-2 bg-slate-50 border border-slate-200 rounded-lg text-sm font-bold text-slate-700 outline-none" onchange="atualizarPrecoInput(this)">
+                        ${options}
+                    </select>
+                </div>
+                <div class="flex gap-2">
+                    <div class="relative flex-grow">
+                        <span class="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 text-xs font-bold">R$</span>
+                        <input type="number" class="service-price w-full pl-8 p-2 bg-white border border-slate-200 rounded-lg text-sm font-bold outline-none" placeholder="0,00">
+                    </div>
+                    <div class="flex items-center border border-slate-200 rounded-lg bg-slate-50 w-24">
+                        <button onclick="alterarQtd(this, -1)" class="w-8 h-full text-slate-500 font-bold hover:bg-white rounded-l-lg transition-colors">-</button>
+                        <span class="qty-value flex-grow text-center text-sm font-bold text-slate-700">1</span>
+                        <button onclick="alterarQtd(this, 1)" class="w-8 h-full text-slate-500 font-bold hover:bg-white rounded-r-lg transition-colors">+</button>
+                    </div>
+                </div>
+                <button onclick="this.closest('.service-row').remove()" class="absolute top-3 right-3 text-slate-300 hover:text-red-400 transition-colors"><i class="fa-solid fa-trash-can"></i></button>
+            `;
+            container.appendChild(div);
+        }
+
+        function atualizarPrecoInput(select) {
+            const min = select.options[select.selectedIndex].getAttribute('data-min');
+            const input = select.closest('.service-row').querySelector('.service-price');
+            input.placeholder = `Sugerido: ${min}`;
+        }
+        function alterarQtd(btn, delta) {
+            const span = btn.parentElement.querySelector('.qty-value');
+            let v = parseInt(span.innerText) + delta;
+            if(v < 1) v = 1;
+            span.innerText = v;
+        }
+
+        // --- CÁLCULO CORE (AGORA INCLUI A GERAÇÃO DE MENSAGENS) ---
+        function calcularPrecos() {
+            let totalServicos = 0;
+            let itensParaImpressao = [];
+            
+            document.querySelectorAll('.service-row').forEach(row => {
+                const select = row.querySelector('select');
+                if(select.selectedIndex === 0) return; // Pula não selecionados
+                
+                const nome = select.value;
+                const preco = parseFloat(row.querySelector('.service-price').value) || 0;
+                const qtd = parseInt(row.querySelector('.qty-value').innerText);
+                
+                if(nome && preco > 0) {
+                    const totalLinha = preco * qtd;
+                    totalServicos += totalLinha;
+                    // AGORA INCLUI 'unit' (Preço Unitário)
+                    itensParaImpressao.push({ nome, qtd, unit: preco, total: totalLinha });
+                }
+            });
+
+            if(totalServicos === 0) { alert("Por favor, adicione serviços e valores."); return; }
+
+            const mat = parseFloat(document.getElementById('custoPecas').value) || 0;
+            const km = parseFloat(document.getElementById('distanciaKm').value) || 0;
+            const garantiaDias = document.getElementById('inputGarantia').value || 90;
+            
+            // Logística
+            const dadosVeiculo = DATA_VEICULOS[state.veiculo] || DATA_VEICULOS.hatch;
+            const custoGasolinaKm = state.gasolina / dadosVeiculo.eficiencia;
+            const custoLogistica = km * (custoGasolinaKm + dadosVeiculo.custoKm);
+
+            const totalFinal = totalServicos + mat + custoLogistica; 
+
+            // Formatação
+            const fmt = v => v.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
+            
+            // Popula UI Resultados
+            document.getElementById('displayLogistica').innerText = fmt(custoLogistica);
+            document.getElementById('displayMaoObra').innerText = fmt(totalServicos);
+            document.getElementById('displayMateriais').innerText = fmt(mat);
+            
+            document.getElementById('displayPrecoFinal').innerText = fmt(totalFinal);
+            document.getElementById('displayLucroLiquido').innerText = fmt(totalServicos); 
+
+            // Dados globais (Úteis para PDF)
+            window.dadosOrcamento = {
+                prestador: document.getElementById('nomePrestador').value || "Técnico Responsável",
+                cliente: document.getElementById('nomeCliente').value || "Cliente",
+                endereco: document.getElementById('enderecoServico').value || "", // ADDED
+                detalhes: document.getElementById('detalhesServico').value || "",
+                data: document.getElementById('dataServico').value.split('-').reverse().join('/'),
+                hora: document.getElementById('horaServico').value,
+                itens: itensParaImpressao,
+                total: totalFinal,
+                sinal: totalFinal * 0.3, 
+                saldo: totalFinal * 0.7,
+                mat: mat,
+                garantia: `${garantiaDias} dias`
+            };
+
+            // ==========================================
+            // GERAÇÃO DE MENSAGENS (DIRETO NO CÁLCULO)
+            // ==========================================
+            const d = window.dadosOrcamento;
+            // ATUALIZADO: Mostra valor ao lado do item
+            const servicosLista = d.itens.map(i => `• ${i.qtd}x ${i.nome} - ${fmt(i.total)}`).join('\n');
+
+            // 1. Proposta
+            const msg1 = `*ORÇAMENTO TÉCNICO - HVAC*\n\nOlá ${d.cliente}! Segue o orçamento detalhado:\n\n*SERVIÇOS:*\n${servicosLista}\n\n*OBSERVAÇÕES:* ${d.detalhes}\n\n*INVESTIMENTO TOTAL:* ${fmt(d.total)}\n(Incluso Material, Mão de Obra e Deslocamento)\n\n*Garantia:* ${d.garantia}\n*Data Prevista:* ${d.data}\n\nFico no aguardo da sua aprovação.\nAtenciosamente, ${d.prestador}`;
+            
+            // 2. Sinal
+            const msg2 = `Olá ${d.cliente}! 👋\n\nPara confirmarmos o agendamento do dia *${d.data}* e realizarmos a compra dos materiais, precisamos de um sinal.\n\n*Valor do Sinal (30%): ${fmt(d.sinal)}*\n\nChave PIX: [SUA CHAVE AQUI]\n\nPor favor, envie o comprovante para bloquearmos a agenda.\nObrigado!`;
+
+            // 3. Finalização
+            const msg3 = `*Serviço Concluído com Sucesso!* ✅\n\nPrezado(a) ${d.cliente}, seu equipamento está pronto e testado.\n\n*Saldo Restante:* ${fmt(d.saldo)}\n\nLembrando que você conta com *${d.garantia}* de garantia técnica sobre o serviço realizado.\n\nAgradeço a preferência e confiança!\n${d.prestador}`;
+
+            // Inserção Direta no DOM (Novos IDs)
+            const el1 = document.getElementById('txt_proposta');
+            const el2 = document.getElementById('txt_sinal');
+            const el3 = document.getElementById('txt_final');
+            
+            if(el1) el1.innerText = msg1;
+            if(el2) el2.innerText = msg2;
+            if(el3) el3.innerText = msg3;
+            // ==========================================
+
+            // Troca Telas
+            document.getElementById('input-section').classList.add('hidden');
+            document.getElementById('results-section').classList.remove('hidden');
+            window.scrollTo({ top: 0, behavior: 'smooth' });
+        }
+
+        function copiarTexto(id, btn) {
+            const el = document.getElementById(id);
+            if (!el) return;
+            const texto = el.innerText;
+            navigator.clipboard.writeText(texto).then(() => {
+                const originalText = btn.innerHTML;
+                
+                // Feedback visual de sucesso
+                btn.innerHTML = '<i class="fa-solid fa-check"></i> COPIADO!';
+                btn.classList.remove('bg-blue-50', 'text-blue-600', 'bg-orange-50', 'text-orange-600', 'bg-green-50', 'text-green-600');
+                btn.classList.add('bg-slate-800', 'text-white');
+                
+                setTimeout(() => {
+                    btn.innerHTML = originalText;
+                    btn.classList.remove('bg-slate-800', 'text-white');
+                    // Retorna à cor azul base para simplificar (ou idealmente restauraria a original, mas azul funciona bem para todos como reset)
+                    btn.classList.add('bg-blue-50', 'text-blue-600'); 
+                }, 2000);
+            }).catch(err => alert("Erro ao copiar. Permissão negada pelo navegador."));
+        }
+
+        // --- IMPRESSÃO / PDF ---
+        function imprimirOrcamento() {
+            const d = window.dadosOrcamento;
+            if(!d) { alert("Realize um cálculo primeiro."); return; }
+
+            const fmt = v => v.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
+
+            document.getElementById('printPrestador').innerText = d.prestador;
+            document.getElementById('printCliente').innerText = d.cliente;
+            document.getElementById('printEndereco').innerText = d.endereco; // ADDED
+            document.getElementById('printDetalhes').innerText = d.detalhes;
+            document.getElementById('printData').innerText = `Data: ${d.data}`;
+            document.getElementById('printMateriais').innerText = fmt(d.mat);
+            document.getElementById('printTotal').innerText = fmt(d.total);
+            document.getElementById('printGarantia').innerText = d.garantia;
+
+            const tbody = document.getElementById('printServicesList');
+            tbody.innerHTML = '';
+            d.itens.forEach(i => {
+                tbody.innerHTML += `
+                    <tr style="border-bottom: 1px solid #f1f5f9;">
+                        <td style="padding: 12px 0;">${i.nome}</td>
+                        <td style="padding: 12px 0; text-align: center;">${i.qtd}</td>
+                        <td style="padding: 12px 0; text-align: right; font-weight: 600;">${fmt(i.total)}</td>
+                    </tr>
+                `;
+            });
+
+            window.print();
+        }
+
+        function reiniciar() {
+            document.getElementById('input-section').classList.remove('hidden');
+            document.getElementById('results-section').classList.add('hidden');
+            document.querySelectorAll('.accordion-content').forEach(el => el.classList.remove('accordion-open')); // Changed logic here in previous step but need to sync with CSS
+        }
+
+        // --- UTILS ---
+        function toggleSettings() {
+            const m = document.getElementById('settingsModal');
+            const c = document.getElementById('modalContent');
+            if(m.classList.contains('hidden')) {
+                m.classList.remove('hidden');
+                setTimeout(() => c.classList.remove('translate-y-full'), 10);
+                renderListaServicosBase();
+            } else {
+                c.classList.add('translate-y-full');
+                setTimeout(() => m.classList.add('hidden'), 300);
+            }
+        }
+        function toggleAccordion(id) {
+            const el = document.getElementById(id);
+            // Simpler logic: Toggle a class
+            el.classList.toggle('accordion-open');
+        }
+
+        // --- GESTÃO DE SERVIÇOS CONFIG ---
+        function renderListaServicosBase() {
+            const container = document.getElementById('listaServicosBase');
+            container.innerHTML = '';
+            state.meusServicos.forEach((srv, index) => {
+                const div = document.createElement('div');
+                div.className = "flex justify-between items-center bg-white p-2 rounded border border-slate-100 text-xs";
+                div.innerHTML = `
+                    <span class="font-medium truncate">${srv.nome}</span>
+                    <div class="flex items-center gap-2">
+                        <span class="text-slate-400 font-bold">R$ ${srv.min}</span>
+                        <button onclick="removeServicoBase(${index})" class="text-red-400 hover:text-red-600"><i class="fa-solid fa-trash"></i></button>
+                    </div>
+                `;
+                container.appendChild(div);
+            });
+        }
+        function adicionarServicoBase() {
+            const nome = document.getElementById('novoServicoNome').value.trim();
+            const min = parseFloat(document.getElementById('novoServicoValor').value);
+            if(nome && !isNaN(min)) {
+                state.meusServicos.push({ nome, min });
+                document.getElementById('novoServicoNome').value = '';
+                document.getElementById('novoServicoValor').value = '';
+                renderListaServicosBase();
+            }
+        }
+        function removeServicoBase(index) {
+            state.meusServicos.splice(index, 1);
+            renderListaServicosBase();
+        }
+        function salvarConfiguracoes() {
+            saveState();
+            toggleSettings();
+            location.reload(); 
+        }
+
+    </script>
+</body>
+</html>
