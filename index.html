@@ -1,0 +1,854 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <!-- Viewport otimizado para não permitir zoom acidental e cobrir a tela toda (notch) -->
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+    
+    <title>Refrigerista Blindado 5.2</title>
+    <meta name="description" content="Ferramenta PWA profissional para técnicos de refrigeração.">
+    <meta name="theme-color" content="#0f172a">
+
+    <!-- CONFIGURAÇÃO PARA PARECER APP NATIVO (SEM BARRA DE URL) -->
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="mobile-web-app-capable" content="yes">
+
+    <!-- PWA MANIFEST -->
+    <link rel="manifest" href="manifest.json">
+    <link rel="apple-touch-icon" href="icon-192.png">
+
+    <!-- FAVICON -->
+    <link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>❄️</text></svg>">
+
+    <!-- LIBRARIES -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    
+    <style>
+        /* Desabilita seleção de texto indesejada e melhora o toque */
+        body { 
+            font-family: 'Inter', sans-serif; 
+            background-color: #f8fafc; 
+            -webkit-font-smoothing: antialiased;
+            overscroll-behavior-y: none; /* Impede efeito elástico no topo/fundo */
+            user-select: none; /* Sensação de app nativo */
+        }
+        
+        /* Permite selecionar texto apenas onde necessário (inputs e mensagens) */
+        input, textarea, .select-all { user-select: text; }
+
+        /* Ajustes de Safe Area (Notch do iPhone) */
+        .pb-safe { padding-bottom: env(safe-area-inset-bottom); }
+        .pt-safe { padding-top: max(1.25rem, env(safe-area-inset-top)); }
+        
+        input, select, textarea { font-size: 16px !important; } /* Evita zoom no iOS */
+        
+        .input-field:focus { 
+            border-color: #2563eb; 
+            box-shadow: 0 0 0 4px rgba(37, 99, 235, 0.1); 
+        }
+
+        /* ACORDEÃO */
+        .accordion-content { 
+            max-height: 0; 
+            opacity: 0; 
+            overflow: hidden; 
+            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+        .accordion-open .accordion-content { 
+            max-height: 1000px !important; 
+            opacity: 1 !important;
+        }
+        .accordion-icon { transition: transform 0.3s ease; }
+        .accordion-open .accordion-icon { transform: rotate(180deg); }
+
+        .modal-overlay { background-color: rgba(15, 23, 42, 0.8); backdrop-filter: blur(4px); }
+        
+        @keyframes slideUp {
+            from { transform: translateY(20px); opacity: 0; }
+            to { transform: translateY(0); opacity: 1; }
+        }
+        .animate-slide-up { animation: slideUp 0.4s cubic-bezier(0.16, 1, 0.3, 1) forwards; }
+
+        /* LOADING SPINNER */
+        .loader {
+            border: 3px solid #f3f3f3;
+            border-radius: 50%;
+            border-top: 3px solid #3498db;
+            width: 20px;
+            height: 20px;
+            -webkit-animation: spin 1s linear infinite;
+            animation: spin 1s linear infinite;
+        }
+        @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
+
+        @media print {
+            body * { visibility: hidden; }
+            #printable-area, #printable-area * { visibility: visible; }
+            #printable-area { 
+                position: absolute; left: 0; top: 0; width: 100%; 
+                background: white; display: block !important; z-index: 9999;
+            }
+            .no-print { display: none !important; }
+            @page { margin: 1cm; size: A4; }
+        }
+    </style>
+</head>
+<body class="text-slate-800 pb-safe">
+
+    <div class="app-wrapper min-h-[100dvh] flex flex-col items-center justify-start sm:justify-center p-0 sm:p-4 no-print">
+        
+        <!-- CARD PRINCIPAL -->
+        <div class="w-full max-w-md bg-white sm:rounded-3xl overflow-hidden border-0 sm:border border-slate-200 shadow-none sm:shadow-2xl relative z-10 flex flex-col min-h-[100dvh] sm:min-h-0">
+            
+            <!-- CABEÇALHO -->
+            <header class="bg-[#0f172a] text-white p-5 pt-safe pb-10 relative overflow-hidden flex justify-between items-center shadow-lg z-20">
+                <div class="absolute top-0 right-0 w-32 h-32 bg-blue-600 rounded-full opacity-20 blur-3xl transform translate-x-10 -translate-y-10 pointer-events-none"></div>
+                
+                <div class="z-10 flex items-center gap-3">
+                    <div id="headerLogoArea" class="hidden w-10 h-10 bg-white rounded-lg overflow-hidden flex items-center justify-center border border-slate-700 shadow-lg">
+                        <img id="headerLogoImg" src="" alt="Logo" class="w-full h-full object-contain">
+                    </div>
+                    <div>
+                        <div class="flex items-center gap-2 opacity-90">
+                            <i class="fa-solid fa-snowflake text-blue-400 text-sm animate-pulse"></i>
+                            <span class="text-[10px] font-bold uppercase tracking-widest text-blue-200">Refrigeração</span>
+                        </div>
+                        <h1 class="text-lg font-black uppercase tracking-wide text-white leading-none mt-0.5">
+                            REFRIGERISTA <span class="text-blue-500">BLINDADO</span>
+                        </h1>
+                    </div>
+                </div>
+                
+                <div class="flex gap-2">
+                    <button onclick="toggleHistory()" class="z-10 text-white bg-white/10 hover:bg-white/20 transition-colors w-9 h-9 flex items-center justify-center rounded-xl backdrop-blur-md" title="Histórico">
+                        <i class="fa-solid fa-clock-rotate-left text-sm"></i>
+                    </button>
+                    <button onclick="toggleSettings()" class="z-10 text-white bg-white/10 hover:bg-white/20 transition-colors w-9 h-9 flex items-center justify-center rounded-xl backdrop-blur-md" title="Configurações">
+                        <i class="fa-solid fa-gear text-sm"></i>
+                    </button>
+                </div>
+            </header>
+
+            <!-- CONTEÚDO SCROLLÁVEL -->
+            <div class="relative -mt-6 bg-white rounded-t-[1.5rem] flex-grow shadow-[0_-10px_20px_-5px_rgba(0,0,0,0.1)] z-30 overflow-y-auto pb-20">
+                <div class="p-5 pt-6">
+                    
+                    <!-- TELA 1: INPUTS -->
+                    <div id="input-section" class="space-y-5">
+                        
+                        <!-- BOTÃO AFILIADO -->
+                        <a href="https://mercadolivre.com/sec/1bpYUnD" target="_blank" class="block w-full bg-gradient-to-r from-blue-600 to-blue-700 text-white font-bold text-xs py-3 rounded-xl shadow-lg shadow-blue-500/20 flex items-center justify-center gap-2 hover:from-blue-700 hover:to-blue-800 transition-all transform active:scale-[0.98] group relative overflow-hidden border border-blue-500/30">
+                            <div class="absolute inset-0 bg-white/10 opacity-0 group-hover:opacity-100 transition-opacity"></div>
+                            <i class="fa-solid fa-gift text-yellow-300 text-sm group-hover:animate-bounce"></i>
+                            <span class="tracking-wide">OFERTAS DA SEMANA</span>
+                            <i class="fa-solid fa-arrow-up-right-from-square text-[10px] opacity-60 ml-1"></i>
+                        </a>
+
+                        <!-- Dados Cliente -->
+                        <div class="bg-slate-50 p-4 rounded-2xl border border-slate-100 space-y-3 relative overflow-hidden">
+                            <div class="absolute top-0 left-0 w-1 h-full bg-blue-500"></div>
+                            <label class="block text-xs font-bold text-blue-600 uppercase tracking-wide mb-2 flex items-center gap-2">
+                                <i class="fa-solid fa-user-tag"></i> Dados do Orçamento
+                            </label>
+                            
+                            <input type="text" id="nomePrestador" placeholder="Seu Nome / Sua Empresa" class="input-field w-full p-3 bg-white border border-slate-200 rounded-xl text-sm font-bold text-slate-700 focus:outline-none placeholder-slate-400 transition-all">
+                            
+                            <div class="grid grid-cols-2 gap-3">
+                                <input type="text" id="nomeCliente" placeholder="Nome do Cliente" class="col-span-2 input-field w-full p-3 bg-white border border-slate-200 rounded-xl text-sm font-bold text-slate-700 focus:outline-none placeholder-slate-400 transition-all">
+                                
+                                <!-- ENDEREÇO -->
+                                <input type="text" id="enderecoCliente" placeholder="Endereço (Rua, Nº, Bairro)" class="col-span-2 input-field w-full p-3 bg-white border border-slate-200 rounded-xl text-sm font-bold text-slate-700 focus:outline-none placeholder-slate-400 transition-all">
+
+                                <input type="tel" id="telefoneCliente" placeholder="(DD) 9XXXX-XXXX" maxlength="15" onkeyup="mascaraTelefone(this)" class="col-span-2 input-field w-full p-3 bg-white border border-slate-200 rounded-xl text-sm font-bold text-slate-700 focus:outline-none placeholder-slate-400 transition-all">
+                            </div>
+                            
+                            <div class="grid grid-cols-3 gap-2">
+                                <div class="col-span-1">
+                                    <label class="text-[10px] font-bold text-slate-400 uppercase ml-1">Data</label>
+                                    <input type="date" id="dataServico" class="input-field w-full p-2 bg-white border border-slate-200 rounded-xl text-xs font-bold text-slate-700 focus:outline-none text-center">
+                                </div>
+                                <div class="col-span-1">
+                                    <label class="text-[10px] font-bold text-slate-400 uppercase ml-1">Hora</label>
+                                    <input type="time" id="horaServico" value="09:00" class="input-field w-full p-2 bg-white border border-slate-200 rounded-xl text-xs font-bold text-slate-700 focus:outline-none text-center">
+                                </div>
+                                <div class="col-span-1">
+                                    <label class="text-[10px] font-bold text-slate-400 uppercase ml-1">Garantia</label>
+                                    <div class="relative">
+                                        <input type="number" id="inputGarantia" placeholder="90" value="90" class="input-field w-full p-2 pr-6 bg-white border border-slate-200 rounded-xl text-xs font-bold text-slate-700 focus:outline-none text-center">
+                                        <span class="absolute right-2 top-1/2 -translate-y-1/2 text-[9px] text-slate-400 font-bold">D</span>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Serviços -->
+                        <div class="space-y-3">
+                            <div class="flex justify-between items-center px-1">
+                                <label class="text-xs font-bold text-slate-500 uppercase tracking-wide flex items-center gap-2">
+                                    <i class="fa-solid fa-screwdriver-wrench"></i> Serviços
+                                </label>
+                                <span class="text-[10px] bg-blue-100 text-blue-700 px-2 py-0.5 rounded-full font-bold">Itens</span>
+                            </div>
+                            <div id="services-container" class="space-y-3"></div>
+                            
+                            <button onclick="adicionarServico()" class="w-full py-3 border-2 border-dashed border-slate-300 rounded-xl text-xs font-bold text-slate-500 hover:border-blue-500 hover:text-blue-600 hover:bg-blue-50 transition-all flex items-center justify-center gap-2 active:scale-95 touch-manipulation">
+                                <i class="fa-solid fa-circle-plus"></i> ADICIONAR ITEM
+                            </button>
+                            
+                            <div class="relative">
+                                <i class="fa-solid fa-pen-to-square absolute top-3 left-3 text-slate-300 text-xs"></i>
+                                <textarea id="detalhesServico" rows="2" placeholder="Observações técnicas (Ex: Tubulação de cobre, suporte...)" class="input-field w-full pl-9 p-3 bg-slate-50 border border-slate-200 rounded-xl text-sm font-medium text-slate-700 focus:outline-none resize-none placeholder-slate-400 transition-all"></textarea>
+                            </div>
+                        </div>
+
+                        <!-- Custos -->
+                        <div class="pt-4 border-t border-slate-100">
+                            <label class="block text-xs font-bold text-slate-500 uppercase tracking-wide ml-1 mb-3 flex items-center gap-2">
+                                <i class="fa-solid fa-calculator"></i> Custos Operacionais
+                            </label>
+                            <div class="relative group mb-3">
+                                <div class="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 font-bold text-sm">R$</div>
+                                <input type="text" id="custoPecas" placeholder="0,00" onkeyup="formatarMoeda(this)" class="input-field w-full pl-10 pr-28 py-3 bg-white border border-slate-200 rounded-xl text-lg font-bold text-slate-700 focus:outline-none transition-all" inputmode="numeric">
+                                <span class="absolute right-4 top-1/2 -translate-y-1/2 text-xs font-bold text-slate-300 uppercase pointer-events-none bg-slate-50 px-2 py-1 rounded">Material</span>
+                            </div>
+                            <div class="grid grid-cols-2 gap-4">
+                                <div class="relative">
+                                    <i class="fa-solid fa-route absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 text-xs"></i>
+                                    <input type="number" id="distanciaKm" placeholder="Km Total" class="input-field w-full pl-9 py-3 bg-white border border-slate-200 rounded-xl text-sm font-bold text-slate-700 focus:outline-none transition-all" inputmode="numeric">
+                                </div>
+                                <div class="relative">
+                                    <i class="fa-regular fa-clock absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 text-xs"></i>
+                                    <input type="number" id="tempoHoras" placeholder="Horas" class="input-field w-full pl-9 py-3 bg-white border border-slate-200 rounded-xl text-sm font-bold text-slate-700 focus:outline-none transition-all" inputmode="decimal">
+                                </div>
+                            </div>
+                        </div>
+
+                        <button onclick="calcularPrecos()" class="w-full bg-blue-600 text-white font-black py-4 rounded-2xl shadow-lg shadow-blue-600/30 active:scale-[0.98] transition-transform text-lg mt-4 flex items-center justify-center gap-3 mb-10">
+                            CALCULAR AGORA <i class="fa-solid fa-arrow-right animate-bounce-x"></i>
+                        </button>
+                    </div>
+
+                    <!-- TELA 2: RESULTADOS -->
+                    <div id="results-section" class="hidden space-y-5 animate-slide-up pb-10">
+                        
+                        <!-- Valor Final -->
+                        <div class="bg-[#0f172a] p-6 rounded-3xl shadow-xl text-white text-center relative overflow-hidden ring-4 ring-slate-100">
+                            <div class="absolute top-0 right-0 w-32 h-32 bg-blue-500 rounded-full opacity-20 blur-2xl"></div>
+                            <div class="relative z-10">
+                                <p class="text-[10px] font-bold text-blue-300 uppercase mb-2 tracking-widest">Valor Sugerido</p>
+                                <p class="text-5xl font-black mb-5 tracking-tighter drop-shadow-lg" id="displayPrecoFinal">R$ 0,00</p>
+                                
+                                <div class="grid grid-cols-2 gap-2 text-left">
+                                    <div class="bg-white/10 p-2.5 px-3 rounded-xl border border-white/5 backdrop-blur-sm">
+                                        <p class="text-[9px] text-slate-400 uppercase font-bold mb-0.5">Lucro Líquido</p>
+                                        <p class="text-base font-bold text-green-400" id="displayLucroLiquido">R$ 0,00</p>
+                                    </div>
+                                    <div class="bg-white/10 p-2.5 px-3 rounded-xl border border-white/5 backdrop-blur-sm">
+                                        <p class="text-[9px] text-slate-400 uppercase font-bold mb-0.5">Despesas</p>
+                                        <p class="text-base font-bold text-red-300" id="displayDespesas">R$ 0,00</p>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Dados Restaurados -->
+                        <div class="grid grid-cols-3 gap-2 text-center">
+                            <div class="p-3 rounded-xl bg-blue-50 border border-blue-100">
+                                <i class="fa-solid fa-truck-fast text-blue-500 text-xs mb-1"></i>
+                                <div class="text-[9px] text-slate-400 font-bold uppercase">Logística</div>
+                                <div class="text-xs font-black text-slate-700" id="displayLogistica">R$ 0,00</div>
+                            </div>
+                            <div class="p-3 rounded-xl bg-green-50 border border-green-100">
+                                <i class="fa-solid fa-screwdriver-wrench text-green-500 text-xs mb-1"></i>
+                                <div class="text-[9px] text-slate-400 font-bold uppercase">Mão de Obra</div>
+                                <div class="text-xs font-black text-slate-700" id="displayMaoObra">R$ 0,00</div>
+                            </div>
+                            <div class="p-3 rounded-xl bg-orange-50 border border-orange-100">
+                                <i class="fa-solid fa-box-open text-orange-500 text-xs mb-1"></i>
+                                <div class="text-[9px] text-slate-400 font-bold uppercase">Materiais</div>
+                                <div class="text-xs font-black text-slate-700" id="displayMateriais">R$ 0,00</div>
+                            </div>
+                        </div>
+
+                        <!-- Botões de Ação -->
+                        <div class="grid grid-cols-2 gap-3">
+                             <button id="btnCompartilharPDF" onclick="compartilharPDF()" class="bg-white border-2 border-slate-100 text-slate-600 py-3.5 rounded-xl font-bold text-xs flex items-center justify-center gap-2 hover:bg-slate-50 transition-colors touch-manipulation">
+                                <span id="labelPDF" class="flex items-center gap-2">
+                                    <i class="fa-solid fa-share-nodes text-red-500 text-base"></i> ENVIAR ORÇAMENTO
+                                </span>
+                                <div id="loaderPDF" class="loader hidden"></div>
+                            </button>
+                            <button onclick="reiniciar()" class="bg-white border-2 border-slate-100 text-slate-600 py-3.5 rounded-xl font-bold text-xs flex items-center justify-center gap-2 hover:bg-slate-50 transition-colors touch-manipulation">
+                                <i class="fa-solid fa-rotate-left text-blue-500 text-base"></i> NOVO CÁLCULO
+                            </button>
+                        </div>
+
+                        <!-- Mensagens Prontas -->
+                        <div class="space-y-3 pt-4 border-t border-slate-100">
+                            <h3 class="text-xs font-bold text-slate-400 uppercase text-center py-1 tracking-widest">Mensagens Prontas</h3>
+                            
+                            <div class="message-accordion bg-white border border-slate-200 rounded-xl overflow-hidden shadow-sm" id="acc-msg1">
+                                <button onclick="toggleAccordion('acc-msg1')" class="w-full p-4 flex justify-between items-center bg-slate-50 hover:bg-white transition-colors">
+                                    <span class="text-xs font-bold text-slate-700 uppercase flex items-center gap-2">
+                                        <span class="w-6 h-6 rounded-full bg-blue-100 text-blue-600 flex items-center justify-center text-[10px]">1</span> 
+                                        Proposta
+                                    </span>
+                                    <i class="fa-solid fa-chevron-down text-slate-400 text-xs accordion-icon"></i>
+                                </button>
+                                <div class="accordion-content border-t border-slate-100">
+                                    <div class="p-4 bg-slate-50">
+                                        <div class="bg-white p-3 rounded-xl border border-slate-200 shadow-sm mb-3">
+                                            <div id="txt_proposta" class="text-xs text-slate-600 whitespace-pre-wrap font-mono leading-relaxed select-all"></div>
+                                        </div>
+                                        <button onclick="copiarTexto('txt_proposta', this)" class="w-full py-3 bg-blue-600 text-white rounded-lg text-xs font-bold hover:bg-blue-700 transition-colors flex items-center justify-center gap-2 active:scale-95">
+                                            <i class="fa-regular fa-copy"></i> COPIAR TEXTO
+                                        </button>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div class="message-accordion bg-white border border-slate-200 rounded-xl overflow-hidden shadow-sm" id="acc-msg2">
+                                <button onclick="toggleAccordion('acc-msg2')" class="w-full p-4 flex justify-between items-center bg-slate-50 hover:bg-white transition-colors">
+                                    <span class="text-xs font-bold text-slate-700 uppercase flex items-center gap-2">
+                                        <span class="w-6 h-6 rounded-full bg-orange-100 text-orange-600 flex items-center justify-center text-[10px]">2</span> 
+                                        Sinal
+                                    </span>
+                                    <i class="fa-solid fa-chevron-down text-slate-400 text-xs accordion-icon"></i>
+                                </button>
+                                <div class="accordion-content border-t border-slate-100">
+                                    <div class="p-4 bg-slate-50">
+                                        <div class="bg-white p-3 rounded-xl border border-slate-200 shadow-sm mb-3">
+                                            <div id="txt_sinal" class="text-xs text-slate-600 whitespace-pre-wrap font-mono leading-relaxed select-all"></div>
+                                        </div>
+                                        <button onclick="copiarTexto('txt_sinal', this)" class="w-full py-3 bg-orange-500 text-white rounded-lg text-xs font-bold hover:bg-orange-600 transition-colors flex items-center justify-center gap-2 active:scale-95">
+                                            <i class="fa-regular fa-copy"></i> COPIAR TEXTO
+                                        </button>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div class="message-accordion bg-white border border-slate-200 rounded-xl overflow-hidden shadow-sm" id="acc-msg3">
+                                <button onclick="toggleAccordion('acc-msg3')" class="w-full p-4 flex justify-between items-center bg-slate-50 hover:bg-white transition-colors">
+                                    <span class="text-xs font-bold text-slate-700 uppercase flex items-center gap-2">
+                                        <span class="w-6 h-6 rounded-full bg-green-100 text-green-600 flex items-center justify-center text-[10px]">3</span> 
+                                        Conclusão
+                                    </span>
+                                    <i class="fa-solid fa-chevron-down text-slate-400 text-xs accordion-icon"></i>
+                                </button>
+                                <div class="accordion-content border-t border-slate-100">
+                                    <div class="p-4 bg-slate-50">
+                                        <div class="bg-white p-3 rounded-xl border border-slate-200 shadow-sm mb-3">
+                                            <div id="txt_final" class="text-xs text-slate-600 whitespace-pre-wrap font-mono leading-relaxed select-all"></div>
+                                        </div>
+                                        <button onclick="copiarTexto('txt_final', this)" class="w-full py-3 bg-green-600 text-white rounded-lg text-xs font-bold hover:bg-green-700 transition-colors flex items-center justify-center gap-2 active:scale-95">
+                                            <i class="fa-regular fa-copy"></i> COPIAR TEXTO
+                                        </button>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- ÁREA DE IMPRESSÃO (PDF) -->
+    <div id="printable-area" class="hidden">
+        <div style="font-family: 'Inter', sans-serif; color: #334155; max-width: 800px; margin: 0 auto; padding: 40px;">
+            <div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 2px solid #e2e8f0; padding-bottom: 20px; margin-bottom: 30px;">
+                <div style="display: flex; gap: 20px; align-items: center;">
+                    <img id="printLogo" src="" style="height: 70px; width: auto; object-fit: contain; display: none;">
+                    <div>
+                        <h1 style="font-size: 22px; font-weight: 800; color: #0f172a; margin: 0; line-height: 1.2;" id="printPrestador">Prestador</h1>
+                        <p style="font-size: 14px; color: #64748b; margin: 5px 0 0 0;">Orçamento Profissional</p>
+                    </div>
+                </div>
+                <div style="text-align: right;">
+                    <div style="font-size: 12px; font-weight: 700; color: #94a3b8; text-transform: uppercase;">Data de Emissão</div>
+                    <div style="font-size: 16px; font-weight: 600; color: #0f172a;" id="printData">--/--/----</div>
+                </div>
+            </div>
+            <div style="background-color: #f8fafc; padding: 25px; border-radius: 8px; margin-bottom: 30px; border: 1px solid #e2e8f0;">
+                <table style="width: 100%;">
+                    <tr>
+                        <td style="vertical-align: top;">
+                            <h3 style="font-size: 11px; font-weight: 700; text-transform: uppercase; color: #94a3b8; margin: 0 0 8px 0;">Cliente</h3>
+                            <p style="font-size: 16px; font-weight: 700; color: #0f172a; margin: 0;" id="printCliente">Nome do Cliente</p>
+                            <p style="font-size: 14px; color: #64748b; margin: 4px 0 0 0;" id="printTelefone">Tel: --</p>
+                            <!-- ENDEREÇO IMPRESSO -->
+                            <p style="font-size: 14px; color: #64748b; margin: 2px 0 0 0;" id="printEndereco">End: --</p>
+                        </td>
+                        <td style="vertical-align: top; text-align: right; width: 40%;">
+                            <h3 style="font-size: 11px; font-weight: 700; text-transform: uppercase; color: #94a3b8; margin: 0 0 8px 0;">Observações</h3>
+                            <p style="font-size: 13px; color: #475569; margin: 0; line-height: 1.5;" id="printDetalhes">...</p>
+                        </td>
+                    </tr>
+                </table>
+            </div>
+            <table style="width: 100%; border-collapse: collapse; margin-bottom: 30px;">
+                <thead>
+                    <tr style="border-bottom: 2px solid #0f172a;">
+                        <th style="text-align: left; padding: 12px 0; font-size: 11px; text-transform: uppercase; color: #0f172a; font-weight: 800;">Descrição do Serviço</th>
+                        <th style="text-align: center; padding: 12px 0; font-size: 11px; text-transform: uppercase; color: #0f172a; font-weight: 800;">Qtd</th>
+                        <th style="text-align: right; padding: 12px 0; font-size: 11px; text-transform: uppercase; color: #0f172a; font-weight: 800;">Subtotal</th>
+                    </tr>
+                </thead>
+                <tbody id="printServicesList" style="font-size: 14px; color: #334155;"></tbody>
+            </table>
+            <div style="display: flex; justify-content: flex-end;">
+                <div style="width: 280px;">
+                    <div style="display: flex; justify-content: space-between; margin-bottom: 8px; font-size: 14px; color: #64748b;">
+                        <span>Peças/Materiais:</span>
+                        <span style="font-weight: 600;" id="printMateriais">R$ 0,00</span>
+                    </div>
+                    <div style="display: flex; justify-content: space-between; border-top: 2px solid #e2e8f0; padding-top: 15px; margin-top: 10px;">
+                        <span style="font-size: 14px; font-weight: 800; color: #0f172a; text-transform: uppercase;">Total Geral</span>
+                        <span style="font-size: 22px; font-weight: 900; color: #0f172a;" id="printTotal">R$ 0,00</span>
+                    </div>
+                </div>
+            </div>
+            <div style="margin-top: 60px; text-align: center; font-size: 12px; color: #94a3b8; border-top: 1px dashed #cbd5e1; padding-top: 20px;">
+                <p>Garantia de <span id="printGarantia" style="font-weight: 700; color: #0f172a;">90 dias</span> sobre os serviços prestados.</p>
+                <p style="margin-top: 5px;">Orçamento gerado via <strong>Refrigerista Blindado</strong></p>
+            </div>
+        </div>
+    </div>
+
+    <!-- MODAIS E JS -->
+    <div id="settingsModal" class="fixed inset-0 z-50 hidden">
+        <div class="modal-overlay absolute inset-0 w-full h-full" onclick="toggleSettings()"></div>
+        <div class="absolute inset-x-0 bottom-0 sm:inset-auto sm:top-1/2 sm:left-1/2 sm:-translate-x-1/2 sm:-translate-y-1/2 w-full max-w-lg bg-white rounded-t-3xl sm:rounded-3xl p-6 h-[85vh] sm:h-auto overflow-y-auto transform transition-transform duration-300 translate-y-full shadow-2xl" id="modalContent">
+            <div class="flex justify-between items-center mb-6 border-b pb-4">
+                <h2 class="text-lg font-black text-slate-800 uppercase flex items-center gap-2"><i class="fa-solid fa-sliders text-blue-600"></i> Ajustes</h2>
+                <button onclick="toggleSettings()" class="w-8 h-8 bg-slate-100 rounded-full flex items-center justify-center hover:bg-slate-200"><i class="fa-solid fa-xmark"></i></button>
+            </div>
+            <div class="space-y-6">
+                <!-- Branding -->
+                <div class="bg-slate-50 p-4 rounded-xl border border-slate-200">
+                    <h3 class="text-xs font-bold text-slate-500 uppercase mb-3"><i class="fa-solid fa-image text-blue-500 mr-1"></i> Seu Logótipo</h3>
+                    <input type="file" id="logoInput" accept="image/*" onchange="handleLogoUpload(this)" class="block w-full text-xs text-slate-500 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-xs file:font-semibold file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100"/>
+                    <button onclick="removerLogo()" class="text-[10px] text-red-500 font-bold mt-2 uppercase hover:underline">Remover Logo</button>
+                </div>
+
+                <!-- CONFIG SINAL -->
+                <div class="bg-slate-50 p-4 rounded-xl border border-slate-200">
+                    <h3 class="text-xs font-bold text-slate-500 uppercase mb-3"><i class="fa-solid fa-percent text-blue-500 mr-1"></i> Configuração de Pagamento</h3>
+                    <div class="flex items-center justify-between">
+                        <label class="text-xs font-bold text-slate-700">Sinal exigido (%)</label>
+                        <div class="relative w-24">
+                            <input type="number" id="configSinal" placeholder="30" class="input-field w-full p-2 pr-6 rounded-lg border border-slate-200 text-xs text-center font-bold text-slate-700 outline-none" onchange="salvarConfiguracoes()">
+                            <span class="absolute right-2 top-1/2 -translate-y-1/2 text-[10px] text-slate-400 font-bold">%</span>
+                        </div>
+                    </div>
+                    <p class="text-[10px] text-slate-400 mt-2">Define a % cobrada na mensagem de "Cobrança de Sinal".</p>
+                </div>
+
+                <!-- BACKUP -->
+                <div class="bg-slate-50 p-4 rounded-xl border border-slate-200">
+                    <h3 class="text-xs font-bold text-slate-500 uppercase mb-3"><i class="fa-solid fa-cloud-arrow-up text-blue-500 mr-1"></i> Backup & Segurança</h3>
+                    <div class="grid grid-cols-2 gap-2">
+                        <button onclick="exportarDados()" class="flex flex-col items-center justify-center p-3 bg-white border border-green-200 rounded-xl hover:bg-green-50 transition-colors">
+                            <i class="fa-solid fa-download text-green-500 text-lg mb-1"></i>
+                            <span class="text-[10px] font-bold text-slate-600">BAIXAR BACKUP</span>
+                        </button>
+                        <label class="flex flex-col items-center justify-center p-3 bg-white border border-blue-200 rounded-xl hover:bg-blue-50 transition-colors cursor-pointer">
+                            <i class="fa-solid fa-upload text-blue-500 text-lg mb-1"></i>
+                            <span class="text-[10px] font-bold text-slate-600">RESTAURAR</span>
+                            <input type="file" accept=".json" onchange="importarDados(this)" class="hidden">
+                        </label>
+                    </div>
+                    <p class="text-[10px] text-slate-400 mt-2 text-center">Salve o arquivo no Google Drive/iCloud para não perder seus dados.</p>
+                </div>
+
+                <!-- Gestor de Serviços -->
+                <div class="bg-slate-50 p-4 rounded-xl border border-slate-200">
+                    <h3 class="text-xs font-bold text-slate-500 uppercase mb-3"><i class="fa-solid fa-list text-blue-500 mr-1"></i> Preços Base</h3>
+                    <div class="flex gap-2 mb-3">
+                        <input type="text" id="novoServicoNome" placeholder="Nome do Serviço" class="input-field flex-grow p-2 rounded-lg border border-slate-200 text-xs">
+                        <input type="number" id="novoServicoValor" placeholder="R$" class="input-field w-20 p-2 rounded-lg border border-slate-200 text-xs">
+                        <button onclick="adicionarServicoBase()" class="bg-blue-600 text-white p-2 rounded-lg"><i class="fa-solid fa-plus"></i></button>
+                    </div>
+                    <div id="listaServicosBase" class="max-h-40 overflow-y-auto space-y-1 pr-1"></div>
+                </div>
+                <button onclick="salvarConfiguracoes()" class="w-full bg-[#0f172a] text-white font-bold py-4 rounded-2xl hover:bg-black transition-all shadow-lg">SALVAR ALTERAÇÕES</button>
+            </div>
+        </div>
+    </div>
+
+    <div id="historyModal" class="fixed inset-0 z-50 hidden">
+        <div class="modal-overlay absolute inset-0 w-full h-full" onclick="toggleHistory()"></div>
+        <div class="absolute inset-y-0 right-0 w-full max-w-sm bg-white p-0 h-full overflow-y-auto transform transition-transform duration-300 translate-x-full shadow-2xl flex flex-col" id="historyContent">
+            <div class="bg-[#0f172a] text-white p-6 pb-6 flex justify-between items-center sticky top-0 z-10">
+                <div>
+                    <h2 class="text-lg font-black uppercase"><i class="fa-solid fa-clock-rotate-left mr-2"></i> Histórico</h2>
+                    <p class="text-[10px] text-slate-400">Últimos orçamentos salvos</p>
+                </div>
+                <button onclick="toggleHistory()" class="w-8 h-8 bg-white/10 rounded-full flex items-center justify-center hover:bg-white/20"><i class="fa-solid fa-xmark"></i></button>
+            </div>
+            <div id="historyList" class="flex-grow p-4 space-y-3 bg-slate-50">
+                <div class="text-center text-slate-400 py-10 text-xs">Nenhum orçamento recente.</div>
+            </div>
+            <div class="p-4 border-t border-slate-200 bg-white pb-safe">
+                <button onclick="limparHistorico()" class="w-full py-3 text-red-500 font-bold text-xs border border-red-100 rounded-xl hover:bg-red-50">LIMPAR TUDO</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        if ('serviceWorker' in navigator) {
+            window.addEventListener('load', () => {
+                navigator.serviceWorker.register('./service-worker.js')
+                    .then(reg => console.log('SW OK'))
+                    .catch(err => console.log('SW Error:', err));
+            });
+        }
+
+        const HVAC_SERVICES = [
+            { nome: "Instalação Split 9000/12000 BTUs", min: 500 },
+            { nome: "Instalação Split 18000/24000 BTUs", min: 750 },
+            { nome: "Instalação Piso Teto / Cassete", min: 1200 },
+            { nome: "Instalação Multi-Split (Por Evaporadora)", min: 450 },
+            { nome: "Desinstalação de Equipamento", min: 250 },
+            { nome: "Limpeza e Higienização (Simples)", min: 200 },
+            { nome: "Limpeza Química (Desmontagem Completa)", min: 350 },
+            { nome: "PMOC (Manutenção Mensal)", min: 80 },
+            { nome: "Carga de Gás (R410A/R22/R32)", min: 280 },
+            { nome: "Troca de Capacitor / Relé", min: 180 },
+            { nome: "Troca de Compressor (Mão de Obra)", min: 450 },
+            { nome: "Correção de Vazamento (Flange/Solda)", min: 250 },
+            { nome: "Teste de Estanqueidade (Nitrogênio)", min: 150 },
+            { nome: "Vácuo no Sistema", min: 150 },
+            { nome: "Visita Técnica / Diagnóstico", min: 120 },
+            { nome: "Infraestrutura (Metro Linear)", min: 100 },
+            { nome: "Instalação de Bomba de Dreno", min: 180 },
+            { nome: "Troca de Placa Eletrônica", min: 200 },
+            { nome: "Higienização de Dutos", min: 400 },
+            { nome: "Reparo em Comando Elétrico", min: 250 }
+        ];
+
+        let state = { 
+            veiculo: 'hatch', 
+            gasolina: 6.15, 
+            logoBase64: null, 
+            meusServicos: [], 
+            historico: [],
+            sinalPercent: 30 
+        };
+        const DATA_VEICULOS = { utilitario: { eficiencia: 10.5, custoKm: 0.88 }, hatch: { eficiencia: 11.0, custoKm: 0.45 }, moto: { eficiencia: 35.0, custoKm: 0.20 } };
+
+        const formatBRL = (value) => value.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
+        function formatarMoeda(input) {
+            let v = input.value.replace(/\D/g, "");
+            v = (v / 100).toFixed(2) + "";
+            v = v.replace(".", ",");
+            v = v.replace(/(\d)(?=(\d{3})+(?!\d))/g, "$1.");
+            input.value = v === "0,00" ? "" : v; 
+        }
+        function parseMoeda(valorString) {
+            if (!valorString) return 0;
+            return parseFloat(valorString.replace(/\./g, '').replace(',', '.'));
+        }
+        function mascaraTelefone(input) {
+            let v = input.value.replace(/\D/g, "");
+            v = v.substring(0, 11); 
+            if (v.length > 10) v = v.replace(/^(\d\d)(\d{5})(\d{4}).*/, "($1) $2-$3");
+            else if (v.length > 5) v = v.replace(/^(\d\d)(\d{4})(\d{0,4}).*/, "($1) $2-$3");
+            else if (v.length > 2) v = v.replace(/^(\d\d)(\d{0,5}).*/, "($1) $2");
+            else v = v.replace(/^(\d*)/, "($1");
+            input.value = v;
+        }
+
+        window.onload = () => {
+            loadState();
+            if(state.meusServicos.length === 0) state.meusServicos = JSON.parse(JSON.stringify(HVAC_SERVICES));
+            document.getElementById('dataServico').valueAsDate = new Date();
+            adicionarServico(); renderListaServicosBase(); 
+        };
+
+        function loadState() {
+            const saved = localStorage.getItem('refrigBlindadoV5'); 
+            if(saved) state = { ...state, ...JSON.parse(saved) };
+            if(!state.sinalPercent) state.sinalPercent = 30; 
+            applyConfigToUI();
+            if (!state.historico) state.historico = [];
+        }
+        function saveState() { localStorage.setItem('refrigBlindadoV5', JSON.stringify(state)); }
+
+        function applyConfigToUI() {
+            if(state.logoBase64) {
+                document.getElementById('headerLogoArea').classList.remove('hidden');
+                document.getElementById('headerLogoImg').src = state.logoBase64;
+                document.getElementById('printLogo').src = state.logoBase64;
+                document.getElementById('printLogo').style.display = 'block';
+            } else {
+                document.getElementById('headerLogoArea').classList.add('hidden');
+                document.getElementById('printLogo').style.display = 'none';
+            }
+            document.getElementById('nomePrestador').value = state.prestadorPadrao || "";
+            document.getElementById('configSinal').value = state.sinalPercent || 30;
+        }
+
+        // --- FUNÇÕES DE BACKUP ---
+        function exportarDados() {
+            const dataStr = JSON.stringify(state);
+            const dataUri = 'data:application/json;charset=utf-8,'+ encodeURIComponent(dataStr);
+            const exportFileDefaultName = 'backup_refrigerista_data.json';
+            const linkElement = document.createElement('a');
+            linkElement.setAttribute('href', dataUri);
+            linkElement.setAttribute('download', exportFileDefaultName);
+            linkElement.click();
+        }
+
+        function importarDados(input) {
+            const file = input.files[0];
+            if (!file) return;
+            const reader = new FileReader();
+            reader.onload = function(e) {
+                try {
+                    const loadedState = JSON.parse(e.target.result);
+                    if(loadedState && loadedState.meusServicos) {
+                        state = loadedState;
+                        saveState();
+                        alert("Restaurado com sucesso!");
+                        location.reload();
+                    } else { alert("Arquivo inválido."); }
+                } catch(err) { alert("Erro ao ler backup."); }
+            };
+            reader.readAsText(file);
+        }
+
+        function adicionarServico() {
+            const container = document.getElementById('services-container');
+            const div = document.createElement('div');
+            div.className = "service-row bg-white p-3 rounded-2xl border border-slate-200 shadow-sm relative animate-slide-up";
+            let options = `<option value="" disabled selected>Selecione...</option>`;
+            state.meusServicos.forEach(s => options += `<option value="${s.nome}" data-min="${s.min}">${s.nome}</option>`);
+            div.innerHTML = `
+                <div class="mb-2 pr-6">
+                    <select class="service-select w-full p-2 bg-slate-50 border border-slate-200 rounded-lg text-sm font-bold text-slate-700 outline-none" onchange="atualizarPrecoInput(this)">${options}</select>
+                </div>
+                <div class="flex gap-2">
+                    <div class="relative flex-grow">
+                        <span class="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 text-xs font-bold">R$</span>
+                        <input type="text" class="service-price w-full pl-8 p-2 bg-white border border-slate-200 rounded-lg text-sm font-bold outline-none" placeholder="0,00" onkeyup="formatarMoeda(this)" inputmode="numeric">
+                    </div>
+                    <div class="flex items-center border border-slate-200 rounded-lg bg-slate-50 w-24">
+                        <button onclick="alterarQtd(this, -1)" class="w-8 h-full text-slate-500 font-bold hover:bg-white rounded-l-lg transition-colors">-</button>
+                        <span class="qty-value flex-grow text-center text-sm font-bold text-slate-700">1</span>
+                        <button onclick="alterarQtd(this, 1)" class="w-8 h-full text-slate-500 font-bold hover:bg-white rounded-r-lg transition-colors">+</button>
+                    </div>
+                </div>
+                <button onclick="this.closest('.service-row').remove()" class="absolute top-3 right-3 text-slate-300 hover:text-red-400 transition-colors"><i class="fa-solid fa-trash-can"></i></button>
+            `;
+            container.appendChild(div);
+        }
+        function atualizarPrecoInput(select) {
+            const min = select.options[select.selectedIndex].getAttribute('data-min');
+            const input = select.closest('.service-row').querySelector('.service-price');
+            input.value = parseFloat(min).toFixed(2).replace('.', ',');
+            formatarMoeda(input); 
+        }
+        function alterarQtd(btn, delta) {
+            const span = btn.parentElement.querySelector('.qty-value');
+            let v = parseInt(span.innerText) + delta;
+            if(v < 1) v = 1; span.innerText = v;
+        }
+
+        function calcularPrecos() {
+            let totalServicos = 0, itensParaImpressao = [];
+            document.querySelectorAll('.service-row').forEach(row => {
+                const select = row.querySelector('select');
+                if(select.selectedIndex === 0) return;
+                const nome = select.value;
+                const preco = parseMoeda(row.querySelector('.service-price').value);
+                const qtd = parseInt(row.querySelector('.qty-value').innerText);
+                if(nome && preco > 0) {
+                    totalServicos += preco * qtd;
+                    itensParaImpressao.push({ nome, qtd, total: preco * qtd, unitario: preco });
+                }
+            });
+            if(totalServicos === 0) { alert("Adicione serviços."); return; }
+
+            const mat = parseMoeda(document.getElementById('custoPecas').value);
+            const km = parseFloat(document.getElementById('distanciaKm').value) || 0;
+            const garantiaDias = document.getElementById('inputGarantia').value || 90;
+            const dadosVeiculo = DATA_VEICULOS[state.veiculo] || DATA_VEICULOS.hatch;
+            const custoLogistica = km * ((state.gasolina / dadosVeiculo.eficiencia) + dadosVeiculo.custoKm);
+            const totalFinal = totalServicos + mat + custoLogistica; 
+
+            document.getElementById('displayLogistica').innerText = formatBRL(custoLogistica);
+            document.getElementById('displayMaoObra').innerText = formatBRL(totalServicos);
+            document.getElementById('displayMateriais').innerText = formatBRL(mat);
+            document.getElementById('displayPrecoFinal').innerText = formatBRL(totalFinal);
+            document.getElementById('displayLucroLiquido').innerText = formatBRL(totalServicos); 
+            document.getElementById('displayDespesas').innerText = formatBRL(mat + custoLogistica); 
+
+            const percSinal = state.sinalPercent || 30;
+            const valorSinal = totalFinal * (percSinal / 100);
+            const valorSaldo = totalFinal - valorSinal;
+
+            window.dadosOrcamento = {
+                id: Date.now(), 
+                prestador: document.getElementById('nomePrestador').value || "Técnico",
+                cliente: document.getElementById('nomeCliente').value || "Cliente",
+                endereco: document.getElementById('enderecoCliente').value || "",
+                telefone: document.getElementById('telefoneCliente').value || "",
+                detalhes: document.getElementById('detalhesServico').value || "",
+                data: document.getElementById('dataServico').value.split('-').reverse().join('/'),
+                hora: document.getElementById('horaServico').value,
+                itens: itensParaImpressao, 
+                total: totalFinal, 
+                sinal: valorSinal,
+                sinalPercent: percSinal, 
+                saldo: valorSaldo, 
+                mat: mat, 
+                garantia: `${garantiaDias} dias`
+            };
+            
+            salvarNoHistorico(window.dadosOrcamento);
+            gerarMensagensProntas(window.dadosOrcamento);
+            document.getElementById('input-section').classList.add('hidden');
+            document.getElementById('results-section').classList.remove('hidden');
+            window.scrollTo({ top: 0, behavior: 'smooth' });
+        }
+        
+        function gerarMensagensProntas(d) {
+            const servicosLista = d.itens.map(i => `• ${i.qtd}x ${i.nome} - ${formatBRL(i.total)}`).join('\n');
+            const endTxt = d.endereco ? `\n📍 *Local:* ${d.endereco}` : "";
+            const msg1 = `*ORÇAMENTO TÉCNICO - REFRIGERISTA BLINDADO*\n\nOlá ${d.cliente}! Segue o orçamento:\n\n*SERVIÇOS:*\n${servicosLista}\n\n*OBS:* ${d.detalhes}${endTxt}\n\n*INVESTIMENTO TOTAL:* ${formatBRL(d.total)}\n(Material + Mão de Obra incluso)\n\n*Garantia:* ${d.garantia}\n*Data Prevista:* ${d.data}\n\nFico no aguardo.\n${d.prestador}`;
+            document.getElementById('txt_proposta').innerText = msg1;
+            const msg2 = `Olá ${d.cliente}! 👋\n\nPara agendarmos dia *${d.data}* e comprarmos material, precisamos de um sinal.\n\n*Sinal (${d.sinalPercent}%): ${formatBRL(d.sinal)}*\n\nChave PIX: [SUA CHAVE]\n\nPor favor, envie o comprovante. Obrigado!`;
+            document.getElementById('txt_sinal').innerText = msg2;
+            const msg3 = `*Serviço Concluído!* ✅\n\n${d.cliente}, equipamento pronto.\n\n*Saldo Restante:* ${formatBRL(d.saldo)}\n\nLembrando que você tem *${d.garantia}* de garantia.\n\nObrigado pela preferência!\n${d.prestador}`;
+            document.getElementById('txt_final').innerText = msg3;
+        }
+
+        async function compartilharPDF() {
+            const d = window.dadosOrcamento; if(!d) return;
+            document.getElementById('printPrestador').innerText = d.prestador;
+            document.getElementById('printCliente').innerText = d.cliente;
+            document.getElementById('printTelefone').innerText = d.telefone ? `Tel: ${d.telefone}` : "";
+            document.getElementById('printEndereco').innerText = d.endereco ? `End: ${d.endereco}` : "";
+            document.getElementById('printDetalhes').innerText = d.detalhes;
+            document.getElementById('printData').innerText = d.data;
+            document.getElementById('printMateriais').innerText = formatBRL(d.mat);
+            document.getElementById('printTotal').innerText = formatBRL(d.total);
+            document.getElementById('printGarantia').innerText = d.garantia;
+            const tbody = document.getElementById('printServicesList'); tbody.innerHTML = '';
+            d.itens.forEach(i => {
+                tbody.innerHTML += `<tr style="border-bottom: 1px solid #f1f5f9;"><td style="padding: 10px 0;">${i.nome}</td><td style="padding: 10px 0; text-align: center;">${i.qtd}</td><td style="padding: 10px 0; text-align: right; font-weight: 600;">${formatBRL(i.total)}</td></tr>`;
+            });
+
+            const btn = document.getElementById('btnCompartilharPDF'), label = document.getElementById('labelPDF'), loader = document.getElementById('loaderPDF');
+            label.classList.add('hidden'); loader.classList.remove('hidden');
+            const elemento = document.getElementById('printable-area'); elemento.classList.remove('hidden');
+            const opt = { margin: 5, filename: `Orcamento_${d.cliente.replace(/ /g,'_')}.pdf`, image: { type: 'jpeg', quality: 0.98 }, html2canvas: { scale: 2 }, jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' } };
+
+            try {
+                if (navigator.share && navigator.canShare) {
+                    const pdfBlob = await html2pdf().set(opt).from(elemento).output('blob');
+                    const file = new File([pdfBlob], opt.filename, { type: 'application/pdf' });
+                    if (navigator.canShare({ files: [file] })) { await navigator.share({ files: [file], title: 'Orçamento HVAC', text: `Segue orçamento para ${d.cliente}` }); } 
+                    else { throw new Error("No share support"); }
+                } else { await html2pdf().set(opt).from(elemento).save(); }
+            } catch (err) { console.log("Fallback print", err); window.print(); } 
+            finally { elemento.classList.add('hidden'); loader.classList.add('hidden'); label.classList.remove('hidden'); }
+        }
+
+        function copiarTexto(id, btn) {
+            navigator.clipboard.writeText(document.getElementById(id).innerText).then(() => {
+                const original = btn.innerHTML; btn.innerHTML = '<i class="fa-solid fa-check"></i> COPIADO!';
+                setTimeout(() => btn.innerHTML = original, 2000);
+            });
+        }
+        function salvarNoHistorico(dados) { state.historico.unshift(dados); if (state.historico.length > 10) state.historico.pop(); saveState(); }
+        function toggleHistory() {
+            const m = document.getElementById('historyModal'), c = document.getElementById('historyContent');
+            if(m.classList.contains('hidden')) { renderHistoricoUI(); m.classList.remove('hidden'); setTimeout(() => c.classList.remove('translate-x-full'), 10); } 
+            else { c.classList.add('translate-x-full'); setTimeout(() => m.classList.add('hidden'), 300); }
+        }
+        function renderHistoricoUI() {
+            const list = document.getElementById('historyList'); list.innerHTML = '';
+            if (state.historico.length === 0) return list.innerHTML = '<div class="text-center text-slate-400 py-10 text-xs">Vazio.</div>';
+            state.historico.forEach(item => {
+                const div = document.createElement('div');
+                div.className = "bg-white p-3 rounded-xl border border-slate-200 shadow-sm hover:border-blue-300 transition-colors cursor-pointer";
+                div.onclick = () => carregarDoHistorico(item);
+                div.innerHTML = `<div class="flex justify-between items-start mb-1"><span class="font-bold text-sm text-slate-800">${item.cliente}</span><span class="text-xs font-black text-blue-600">${formatBRL(item.total)}</span></div><div class="text-[10px] text-slate-400 flex justify-between"><span>${item.data}</span><span>${item.itens.length} itens</span></div>`;
+                list.appendChild(div);
+            });
+        }
+        function carregarDoHistorico(item) {
+            if(!confirm("Carregar?")) return;
+            document.getElementById('nomeCliente').value = item.cliente;
+            document.getElementById('enderecoCliente').value = item.endereco || "";
+            document.getElementById('telefoneCliente').value = item.telefone || "";
+            document.getElementById('nomePrestador').value = item.prestador;
+            document.getElementById('detalhesServico').value = item.detalhes;
+            document.getElementById('custoPecas').value = item.mat.toFixed(2).replace('.',',');
+            formatarMoeda(document.getElementById('custoPecas'));
+            const container = document.getElementById('services-container'); container.innerHTML = '';
+            item.itens.forEach(servico => {
+                const div = document.createElement('div'); div.className = "service-row bg-white p-3 rounded-2xl border border-slate-200 shadow-sm relative";
+                let options = `<option value="" disabled>Selecione...</option>`;
+                state.meusServicos.forEach(s => options += `<option value="${s.nome}" ${s.nome === servico.nome ? 'selected' : ''} data-min="${s.min}">${s.nome}</option>`);
+                const valUnit = servico.unitario ? servico.unitario.toFixed(2).replace('.',',') : '0,00';
+                div.innerHTML = `<div class="mb-2 pr-6"><select class="service-select w-full p-2 bg-slate-50 border border-slate-200 rounded-lg text-sm font-bold text-slate-700 outline-none" onchange="atualizarPrecoInput(this)">${options}</select></div><div class="flex gap-2"><div class="relative flex-grow"><span class="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 text-xs font-bold">R$</span><input type="text" class="service-price w-full pl-8 p-2 bg-white border border-slate-200 rounded-lg text-sm font-bold outline-none" value="${valUnit}" onkeyup="formatarMoeda(this)" inputmode="numeric"></div><div class="flex items-center border border-slate-200 rounded-lg bg-slate-50 w-24"><button onclick="alterarQtd(this, -1)" class="w-8 h-full text-slate-500 font-bold hover:bg-white rounded-l-lg transition-colors">-</button><span class="qty-value flex-grow text-center text-sm font-bold text-slate-700">${servico.qtd}</span><button onclick="alterarQtd(this, 1)" class="w-8 h-full text-slate-500 font-bold hover:bg-white rounded-r-lg transition-colors">+</button></div></div><button onclick="this.closest('.service-row').remove()" class="absolute top-3 right-3 text-slate-300 hover:text-red-400 transition-colors"><i class="fa-solid fa-trash-can"></i></button>`;
+                container.appendChild(div);
+            });
+            toggleHistory(); reiniciar();
+        }
+        function limparHistorico() { if(confirm("Apagar tudo?")) { state.historico = []; saveState(); renderHistoricoUI(); } }
+        
+        function reiniciar() {
+            document.getElementById('input-section').classList.remove('hidden');
+            document.getElementById('results-section').classList.add('hidden');
+            document.querySelectorAll('.accordion-content').forEach(el => el.classList.remove('accordion-open'));
+        }
+        function toggleSettings() { const m = document.getElementById('settingsModal'), c = document.getElementById('modalContent'); if(m.classList.contains('hidden')) { m.classList.remove('hidden'); setTimeout(() => c.classList.remove('translate-y-full'), 10); renderListaServicosBase(); } else { c.classList.add('translate-y-full'); setTimeout(() => m.classList.add('hidden'), 300); } }
+        function toggleAccordion(id) { document.getElementById(id).classList.toggle('accordion-open'); }
+        
+        // --- FUNÇÃO DE LOGO OTIMIZADA (EVITA TRAVAMENTO) ---
+        function handleLogoUpload(input) {
+            if (input.files && input.files[0]) {
+                const file = input.files[0];
+                const reader = new FileReader();
+                reader.onload = function(e) {
+                    const img = new Image();
+                    img.src = e.target.result;
+                    img.onload = function() {
+                        const canvas = document.createElement('canvas');
+                        const ctx = canvas.getContext('2d');
+                        const maxWidth = 300;
+                        const scaleSize = maxWidth / img.width;
+                        canvas.width = maxWidth;
+                        canvas.height = img.height * scaleSize;
+                        ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+                        state.logoBase64 = canvas.toDataURL('image/jpeg', 0.7);
+                        applyConfigToUI();
+                    }
+                }
+                reader.readAsDataURL(file);
+            }
+        }
+
+        function removerLogo() { state.logoBase64 = null; document.getElementById('logoInput').value = ""; applyConfigToUI(); }
+        function renderListaServicosBase() { const container = document.getElementById('listaServicosBase'); container.innerHTML = ''; state.meusServicos.forEach((srv, index) => { const div = document.createElement('div'); div.className = "flex justify-between items-center bg-white p-2 rounded border border-slate-100 text-xs"; div.innerHTML = `<span class="font-medium truncate">${srv.nome}</span><div class="flex items-center gap-2"><span class="text-slate-400 font-bold">R$ ${srv.min}</span><button onclick="removeServicoBase(${index})" class="text-red-400 hover:text-red-600"><i class="fa-solid fa-trash"></i></button></div>`; container.appendChild(div); }); }
+        function adicionarServicoBase() { const nome = document.getElementById('novoServicoNome').value.trim(); const min = parseFloat(document.getElementById('novoServicoValor').value); if(nome && !isNaN(min)) { state.meusServicos.push({ nome, min }); document.getElementById('novoServicoNome').value = ''; document.getElementById('novoServicoValor').value = ''; renderListaServicosBase(); } }
+        function removeServicoBase(index) { state.meusServicos.splice(index, 1); renderListaServicosBase(); }
+        function salvarConfiguracoes() { 
+            state.prestadorPadrao = document.getElementById('nomePrestador').value; 
+            state.sinalPercent = parseFloat(document.getElementById('configSinal').value) || 30;
+            saveState(); 
+            toggleSettings(); 
+            applyConfigToUI(); 
+            adicionarServico(); 
+        }
+    </script>
+</body>
+</html>
