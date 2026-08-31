@@ -8,3 +8,6 @@
 # Ambiente
 .env
 .env.*
+
+# Paginas de apoio com segredo em texto
+*.local.html
