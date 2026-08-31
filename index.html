@@ -201,6 +201,87 @@
         var ICLIMA = "https://app.iclima.com.br";
         var SUPORTE = "https://wa.me/5551999999999";
 
+        // -------------------------------------------------------------------
+        // Medição
+        // -------------------------------------------------------------------
+        // A calculadora nunca mandou nada para servidor nenhum, então não existe
+        // resposta retroativa para "quantos ainda usavam". Mas só se chega nesta
+        // página pelo atalho instalado ou pelo link do PDF — ou seja, daqui pra
+        // frente cada pessoa que abre a porta É uma pessoa que ainda usava.
+        //
+        // O que NÃO é enviado: o identificador digitado. Nunca. Vai só o FORMATO
+        // ("email", "documento", "telefone"), que é o que responde "por onde as
+        // pessoas estão falhando" sem guardar CPF nem telefone de ninguém.
+        var VISITANTE_KEY = "porta_visitante";
+
+        function visitante() {
+            try {
+                var v = localStorage.getItem(VISITANTE_KEY);
+                if (!v) {
+                    v = (crypto.randomUUID && crypto.randomUUID()) ||
+                        "xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx".replace(/[xy]/g, function (c) {
+                            var r = Math.random() * 16 | 0;
+                            return (c === "x" ? r : (r & 0x3 | 0x8)).toString(16);
+                        });
+                    localStorage.setItem(VISITANTE_KEY, v);
+                }
+                return v;
+            } catch (e) {
+                // Navegador anônimo ou storage bloqueado: sem id, sem evento.
+                // A porta continua funcionando igual.
+                return null;
+            }
+        }
+
+        function evento(nome, props) {
+            var v = visitante();
+            if (!v) return;
+            try {
+                fetch(SUPABASE_URL + "/rest/v1/rpc/registrar_evento_porta", {
+                    method: "POST",
+                    keepalive: true, // sobrevive à navegação para o iClima
+                    headers: {
+                        "apikey": SUPABASE_ANON_KEY,
+                        "Authorization": "Bearer " + SUPABASE_ANON_KEY,
+                        "Content-Type": "application/json"
+                    },
+                    body: JSON.stringify({ p_visitante: v, p_nome: nome, p_props: props || {} })
+                }).catch(function () { /* telemetria não pode atrapalhar */ });
+            } catch (e) { /* idem */ }
+        }
+
+        // Aberta pelo atalho da tela inicial, ou por um link? É o sinal mais
+        // forte de que a pessoa realmente usava a calculadora no dia a dia.
+        function temAtalho() {
+            try {
+                return window.matchMedia("(display-mode: standalone)").matches ||
+                       window.navigator.standalone === true;
+            } catch (e) { return false; }
+        }
+
+        // Só o tipo do que foi digitado. Os 11 dígitos são ambíguos entre CPF e
+        // celular sem o 55, então o dígito verificador decide — senão "telefone"
+        // apareceria como "documento" e o número não serviria para nada.
+        function formatoDe(valor) {
+            if (valor.indexOf("@") > -1) return "email";
+            var d = valor.replace(/\D/g, "");
+            if (d.length === 14) return "documento";
+            if (d.length === 11) return cpfValido(d) ? "documento" : "telefone";
+            if (d.length >= 10) return "telefone";
+            return "outro";
+        }
+
+        function cpfValido(d) {
+            if (/^(\d)\1{10}$/.test(d)) return false;
+            for (var t = 9; t < 11; t++) {
+                var s = 0;
+                for (var i = 0; i < t; i++) s += parseInt(d[i], 10) * ((t + 1) - i);
+                var v = (s * 10) % 11 % 10;
+                if (v !== parseInt(d[t], 10)) return false;
+            }
+            return true;
+        }
+
         var el = function (id) { return document.getElementById(id); };
         var mostrar = function (qual) {
             ["tela-identificar", "tela-encontrado", "tela-nao-encontrado"].forEach(function (t) {
@@ -232,6 +313,9 @@
                 return;
             }
 
+            var formato = formatoDe(valor);
+            evento("buscou", { formato: formato });
+
             carregando(true);
             try {
                 // Vai como parametro de RPC, nunca concatenado num filtro. Uma
@@ -253,10 +337,12 @@
                 var res = Array.isArray(dados) ? dados[0] : dados;
 
                 if (!res || !res.existe) {
+                    evento("nao_encontrado", { formato: formato });
                     mostrar("tela-nao-encontrado");
                     return;
                 }
 
+                evento("encontrado", { formato: formato, ja_tem_conta: !!res.ja_tem_conta });
                 el("email-mascarado").textContent = res.email_mascarado || "";
 
                 // Quem ja tem conta nao precisa criar senha — vai direto entrar,
@@ -273,15 +359,25 @@
 
                 mostrar("tela-encontrado");
             } catch (e) {
+                // Distingue "sua internet caiu" de "a função respondeu erro" —
+                // sem isso, um problema no servidor apareceria nas métricas como
+                // se fosse falha de rede do comprador.
+                evento("erro", { tipo: String(e && e.message).indexOf("http_") === 0 ? "servidor" : "rede" });
                 erro("Não consegui verificar agora. Confira sua internet e tente de novo em instantes.");
             } finally {
                 carregando(false);
             }
         }
 
+        // Cada abertura é uma pessoa que ainda usava a calculadora.
+        evento("abriu", { instalado: temAtalho() });
+
         el("btn-verificar").addEventListener("click", verificar);
         el("identificador").addEventListener("keydown", function (ev) {
             if (ev.key === "Enter") verificar();
+        });
+        el("btn-ir").addEventListener("click", function () {
+            evento("foi_para_iclima", { ja_tem_conta: el("label-ir").textContent.indexOf("ENTRAR") === 0 });
         });
         el("btn-voltar").addEventListener("click", function () { mostrar("tela-identificar"); });
         el("btn-tentar-de-novo").addEventListener("click", function () {
