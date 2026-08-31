@@ -1,0 +1,10 @@
+# Ferramentas locais
+.claude/
+
+# Exports das plataformas: contem CPF, telefone e endereco dos compradores
+*.csv
+*.xlsx
+
+# Ambiente
+.env
+.env.*
