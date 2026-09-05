@@ -96,7 +96,7 @@
             </div>
 
             <label class="block text-xs font-bold text-slate-400 uppercase tracking-wide mb-2 ml-1">
-                E-mail, CPF/CNPJ ou celular da compra
+                Qualquer dado da sua compra
             </label>
             <input
                 type="text"
@@ -105,6 +105,14 @@
                 autocomplete="email"
                 placeholder="seu@email.com"
                 class="input-field w-full p-4 bg-white/5 border border-white/15 rounded-2xl text-base font-bold text-white outline-none placeholder-slate-500 transition-all mb-3">
+
+            <div class="flex flex-wrap gap-1.5 mb-3">
+                <span class="text-[10px] font-bold text-slate-400 bg-white/5 border border-white/10 rounded-full px-2.5 py-1">E-MAIL</span>
+                <span class="text-[10px] font-bold text-slate-400 bg-white/5 border border-white/10 rounded-full px-2.5 py-1">CPF</span>
+                <span class="text-[10px] font-bold text-slate-400 bg-white/5 border border-white/10 rounded-full px-2.5 py-1">CNPJ</span>
+                <span class="text-[10px] font-bold text-slate-400 bg-white/5 border border-white/10 rounded-full px-2.5 py-1">CELULAR</span>
+                <span class="text-[10px] font-bold text-slate-400 bg-white/5 border border-white/10 rounded-full px-2.5 py-1">Nº DO PEDIDO</span>
+            </div>
 
             <button
                 id="btn-verificar"
@@ -116,7 +124,8 @@
             <p id="erro" class="hidden mt-4 text-sm text-center text-red-300 bg-red-500/10 border border-red-500/20 rounded-2xl p-4 leading-relaxed"></p>
 
             <p class="text-[11px] text-slate-500 text-center mt-6 leading-relaxed">
-                Use o mesmo e-mail, CPF/CNPJ ou celular que você usou na hora de comprar.
+                Qualquer um serve — mas tem que ser o dado <strong class="text-slate-400">da hora da compra</strong>.
+                O número do pedido está no e-mail que você recebeu.
             </p>
         </section>
 
@@ -161,20 +170,49 @@
                     <i class="fa-solid fa-magnifying-glass"></i>
                 </div>
                 <h2 class="text-lg font-black mb-2">Não encontramos essa informação</h2>
-                <p class="text-sm text-slate-300 leading-relaxed mb-3">
-                    Isso quase sempre é um dado diferente do que foi usado na compra. Vale tentar:
+                <p class="text-sm text-slate-300 leading-relaxed mb-4">
+                    Precisa ser o dado que você usou <strong class="text-white">na hora da compra</strong>,
+                    não o de hoje. Em ordem do que mais funciona:
                 </p>
-                <ul class="text-sm text-slate-300 space-y-2 leading-relaxed">
-                    <li class="flex gap-2"><span class="text-amber-300">•</span> o e-mail que recebeu o PDF do kit</li>
-                    <li class="flex gap-2"><span class="text-amber-300">•</span> o CPF ou CNPJ do pagamento</li>
-                    <li class="flex gap-2"><span class="text-amber-300">•</span> o celular com DDD</li>
-                </ul>
+                <ol class="text-sm text-slate-300 space-y-3 leading-relaxed">
+                    <li class="flex gap-3">
+                        <span class="shrink-0 w-5 h-5 rounded-full bg-amber-400/20 text-amber-300 text-[10px] font-black flex items-center justify-center mt-0.5">1</span>
+                        <span><strong class="text-white">O e-mail que recebeu o kit.</strong> É o que mais acerta. Confira a caixa de spam se não lembrar.</span>
+                    </li>
+                    <li class="flex gap-3">
+                        <span class="shrink-0 w-5 h-5 rounded-full bg-amber-400/20 text-amber-300 text-[10px] font-black flex items-center justify-center mt-0.5">2</span>
+                        <span><strong class="text-white">O número do pedido.</strong> Está no e-mail ou no recibo da compra — são 7 caracteres, tipo <span class="font-mono text-amber-200">D5ADC5A</span>.</span>
+                    </li>
+                    <li class="flex gap-3">
+                        <span class="shrink-0 w-5 h-5 rounded-full bg-amber-400/20 text-amber-300 text-[10px] font-black flex items-center justify-center mt-0.5">3</span>
+                        <span><strong class="text-white">Comprou pela empresa?</strong> Então tente o CNPJ, não o seu CPF.</span>
+                    </li>
+                    <li class="flex gap-3">
+                        <span class="shrink-0 w-5 h-5 rounded-full bg-amber-400/20 text-amber-300 text-[10px] font-black flex items-center justify-center mt-0.5">4</span>
+                        <span><strong class="text-white">Trocou de celular?</strong> Só o número antigo, o da época da compra, funciona.</span>
+                    </li>
+                </ol>
             </div>
 
             <button id="btn-tentar-de-novo"
                 class="w-full bg-white/10 hover:bg-white/15 text-white font-black py-4 rounded-2xl active:scale-[.98] transition-all mb-3">
                 TENTAR OUTRO DADO
             </button>
+
+            <!-- Quem já errou duas vezes não precisa de mais uma lista de dicas.
+                 Precisa de gente. Nos primeiros 5 dias, 31 pessoas insistiram
+                 duas ou mais vezes e foram embora sem entrar. -->
+            <div id="bloco-suporte-forte" class="hidden bg-emerald-500/10 border border-emerald-500/25 rounded-2xl p-4 mb-3">
+                <p class="text-sm font-bold text-white mb-1">Deixa que a gente acha pra você</p>
+                <p class="text-xs text-slate-300 leading-relaxed mb-3">
+                    Seu acesso está garantido — é só a busca que não bateu. Chame no WhatsApp
+                    com o nome que você usou na compra e a gente libera na mão.
+                </p>
+                <a id="btn-suporte-forte" href="#" target="_blank" rel="noopener"
+                   class="w-full bg-emerald-500 hover:bg-emerald-400 text-slate-900 font-black py-3.5 rounded-xl flex items-center justify-center gap-2 active:scale-[.98] transition-all">
+                    <i class="fa-brands fa-whatsapp text-base"></i> CHAMAR NO WHATSAPP
+                </a>
+            </div>
 
             <a id="btn-suporte" href="#" target="_blank" rel="noopener"
                class="w-full py-3 text-xs font-bold text-slate-400 hover:text-slate-200 transition-colors flex items-center justify-center gap-2">
@@ -199,7 +237,13 @@
         var SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImRpZnN1ZHVhdnJldG10b3hueHNnIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzMxNzIxMjAsImV4cCI6MjA4ODc0ODEyMH0.UbVMxECAk4rHoHZE3Sso-Xr-FDlcGEJbNa_Ky4bineA";
 
         var ICLIMA = "https://app.iclima.com.br";
+
+        // TROCAR PELO WHATSAPP DE VERDADE. Enquanto for o número de exemplo
+        // abaixo, os dois caminhos de suporte ficam escondidos — mandar quem
+        // já errou duas vezes para um número que não atende é pior do que não
+        // oferecer ajuda nenhuma.
         var SUPORTE = "https://wa.me/5551999999999";
+        var SUPORTE_CONFIGURADO = SUPORTE.indexOf("5551999999999") === -1;
 
         // -------------------------------------------------------------------
         // Medição
@@ -268,6 +312,10 @@
             if (d.length === 14) return "documento";
             if (d.length === 11) return cpfValido(d) ? "documento" : "telefone";
             if (d.length >= 10) return "telefone";
+            // Sobrou: número do pedido. Nenhum dos 5.185 códigos tem 10 dígitos
+            // ou mais, então um código nunca é lido como telefone e um telefone
+            // nunca é lido como código.
+            if (valor.replace(/[^a-zA-Z0-9]/g, "").length >= 4) return "pedido";
             return "outro";
         }
 
@@ -282,6 +330,7 @@
             return true;
         }
 
+        var tentativasFalhas = 0;
         var el = function (id) { return document.getElementById(id); };
         var mostrar = function (qual) {
             ["tela-identificar", "tela-encontrado", "tela-nao-encontrado"].forEach(function (t) {
@@ -338,6 +387,11 @@
 
                 if (!res || !res.existe) {
                     evento("nao_encontrado", { formato: formato });
+                    tentativasFalhas++;
+                    // Na segunda falha para de repetir dica e oferece gente.
+                    var forte = SUPORTE_CONFIGURADO && tentativasFalhas >= 2;
+                    el("bloco-suporte-forte").classList.toggle("hidden", !forte);
+                    el("btn-suporte").classList.toggle("hidden", forte || !SUPORTE_CONFIGURADO);
                     mostrar("tela-nao-encontrado");
                     return;
                 }
@@ -386,6 +440,8 @@
             el("identificador").focus();
         });
         el("btn-suporte").href = SUPORTE;
+        el("btn-suporte-forte").href = SUPORTE;
+        if (!SUPORTE_CONFIGURADO) el("btn-suporte").classList.add("hidden");
 
         // Service worker: registra e, quando houver versao nova esperando,
         // troca na hora. Sem isso o atalho instalado continuaria servindo a
